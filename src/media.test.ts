@@ -19,25 +19,26 @@ test('is page 0 before layout or without photos', () => {
   assert.equal(pageAt(500, 390, 0), 0)
 })
 
-// 390×844 phone: min 242, max 488.
+// 390×844 phone: min 304, max 488.
 const W = 390, H = 844
 
 test('hero takes a photo’s natural height between the bounds', () => {
-  assert.equal(heroHeight(W, H, 1280 / 960), 293) // 4:3
-  assert.equal(heroHeight(W, H, 3 / 2), 260)
+  assert.equal(heroHeight(W, H, 1), 390)
+  assert.equal(heroHeight(W, H, 5 / 4), 312)
 })
 
 test('a short photo gets the minimum, with a centered uncropped fill', () => {
-  assert.equal(heroHeight(W, H, 1280 / 636), 242)
-  const r = fitRect(W, 242, 1280 / 636)
+  assert.equal(heroHeight(W, H, 3 / 2), 304)
+  assert.equal(heroHeight(W, H, 1280 / 636), 304)
+  const r = fitRect(W, 304, 1280 / 636)
   assert.deepEqual([r.left, r.width, r.fill], [0, 390, true])
-  assert.ok(Math.abs(r.top - (242 - r.height) / 2) < 1e-9 && r.height < 200)
+  assert.ok(Math.abs(r.top - (304 - r.height) / 2) < 1e-9 && r.height < 200)
 })
 
 test('a photo just short of the minimum sets the height itself', () => {
-  const h = heroHeight(W, H, 1280 / 750)
-  assert.ok(h === Math.round(390 * 750 / 1280) && h < 242)
-  assert.equal(fitRect(W, h, 1280 / 750).fill, false)
+  const h = heroHeight(W, H, 4 / 3)
+  assert.ok(h === Math.round(390 * 3 / 4) && h < 304)
+  assert.equal(fitRect(W, h, 4 / 3).fill, false)
 })
 
 test('a portrait photo is capped and fitted inside with plain side space', () => {
@@ -48,9 +49,9 @@ test('a portrait photo is capped and fitted inside with plain side space', () =>
 })
 
 test('unknown or broken dimensions use the minimum', () => {
-  assert.equal(heroHeight(W, H), 242)
-  assert.equal(heroHeight(W, H, 0), 242)
-  assert.equal(heroHeight(W, H, NaN), 242)
+  assert.equal(heroHeight(W, H), 304)
+  assert.equal(heroHeight(W, H, 0), 304)
+  assert.equal(heroHeight(W, H, NaN), 304)
 })
 
 test('a short landscape screen keeps min under max', () => {
@@ -60,7 +61,7 @@ test('a short landscape screen keeps min under max', () => {
 
 test('the height follows the photo on the resting page, not the first', () => {
   const aspects = [3 / 4, 1280 / 636, 4 / 3]
-  assert.deepEqual([0, 390, 780].map((x) => heroHeight(W, H, aspects[pageAt(x, W, 3)])), [488, 242, 293])
+  assert.deepEqual([0, 390, 780].map((x) => heroHeight(W, H, aspects[pageAt(x, W, 3)])), [488, 304, 293])
 })
 
 test('fit snaps sub-point gaps to the frame edge', () => {

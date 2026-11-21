@@ -1,7 +1,7 @@
 import { Link, router, useLocalSearchParams } from 'expo-router'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Alert, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { api, imageUrl, listingPreviews, type ListingDetail } from '../../src/api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
@@ -46,10 +46,15 @@ export default function ListingScreen() {
   const hero = (
     <>
       <View collapsable={false} style={{ width, height: heroH, backgroundColor: colors.fill }}>
-        <Gallery photos={photos} title={title} width={width} height={heroH} vignette={insets.top + 56} page={page} onPage={onPage}
+        <Gallery photos={photos} title={title} width={width} height={heroH} vignette={56} page={page} onPage={onPage}
           onAspect={() => setSized((n) => n + 1)} onOpen={() => setViewer(true)} />
         <Link.AppleZoomTarget><ZoomFrame width={width} height={heroH} /></Link.AppleZoomTarget>
       </View>
+    </>
+  )
+  // One continuous panel below the photo; it rises over the photo's bottom edge just enough to show its rounded corners.
+  const panel = (children: ReactNode) => (
+    <View style={[local.panel, { backgroundColor: colors.background }]}>
       {preview && (
         <View style={local.titleBlock}>
           <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
@@ -66,10 +71,11 @@ export default function ListingScreen() {
           </View>
         </View>
       )}
-    </>
+      <View style={styles.screen}>{children}</View>
+    </View>
   )
   const chrome = (
-    <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
+    <View style={[local.chrome, { top: 6 }]} pointerEvents="box-none">
       <GlassButton icon="back" label="Back" onPress={back} />
       {photos.length > 0 && <GlassButton icon="expand" label="View photos full screen" onPress={() => setViewer(true)} />}
     </View>
@@ -77,13 +83,13 @@ export default function ListingScreen() {
 
   if (!l) {
     return (
-      <View style={styles.flex}>
+      <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
           {hero}
-          <View style={styles.screen}><SyncStatus error={error} /></View>
+          {panel(<SyncStatus error={error} />)}
         </ScrollView>
         {chrome}
-      </View>
+      </SafeAreaView>
     )
   }
   const upcoming = [...l.booked, ...l.blocks.map((b) => ({ startDate: b.startDate, endDate: b.endDate, block: true }))]
@@ -103,11 +109,11 @@ export default function ListingScreen() {
   }
 
   return (
-    <View style={styles.flex}>
+    <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
         {hero}
 
-        <View style={styles.screen}>
+        {panel(<>
           {l.isMine && l.status !== 'active' && <Banner tone="error" text={l.status === 'hidden' ? 'Hidden after a report.' : 'Paused. Renters can’t see this car.'} />}
 
           <Card style={local.specs}>
@@ -149,7 +155,7 @@ export default function ListingScreen() {
             </Text>
           )}
           <SyncStatus updatedAt={updatedAt} error={error} />
-        </View>
+        </>)}
       </ScrollView>
       {chrome}
 
@@ -167,7 +173,7 @@ export default function ListingScreen() {
       </View>
 
       {viewer && <PhotoViewer photos={l.photos} title={title} start={shown} onClose={() => setViewer(false)} />}
-    </View>
+    </SafeAreaView>
   )
 }
 
@@ -220,7 +226,9 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
 const local = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   chrome: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titleBlock: { paddingHorizontal: 16, paddingTop: 14, gap: 4 },
+  // Short overlap: covers only the photo's bottom 16pt so the corners read against it.
+  panel: { marginTop: -16, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderCurve: 'continuous' },
+  titleBlock: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
   specs: { flexDirection: 'row', flexWrap: 'wrap', gap: 0, paddingVertical: 8 },
   spec: { width: '33.33%', paddingVertical: 8, gap: 2 },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
