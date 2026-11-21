@@ -1,8 +1,8 @@
-import { router, useLocalSearchParams } from 'expo-router'
+import { Link, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { api, imageUrl, type ListingDetail } from '../../src/api'
+import { api, imageUrl, listingPreviews, type ListingDetail } from '../../src/api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
 import { type, useColors } from '../../src/theme'
@@ -24,44 +24,53 @@ export default function ListingScreen() {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/browse'))
   const heroHeight = Math.round(width * 1.05)
 
-  const hero = (photos: Photo[], title: string, district?: string) => (
-    <View style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
-      <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
-      {district !== undefined && (
-        <GlassCapsule style={local.titleBand}>
-          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
-          <View style={styles.row}>
-            <View style={styles.meta}>
-              <Icon name="pin" size={14} color={colors.ink} />
-              <Text style={[type.callout, { color: colors.ink }]}>{district}</Text>
-            </View>
-            {photos.length > 1 && (
-              <View style={local.dots} accessible accessibilityLabel={`Photo ${page + 1} of ${photos.length}`}>
-                {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === page ? colors.ink : colors.tertiary }]} />)}
+  // Until the detail arrives, the hero shows the card's copy so the zoom lands on the same photo from the first frame.
+  const preview = l ?? listingPreviews.get(Number(id))
+  const photos = preview?.photos ?? []
+  const title = preview ? `${preview.make} ${preview.model} ${preview.year}` : ''
+
+  // One stable tree from loading to loaded: the zoom target must not remount mid-transition.
+  const hero = (
+    <Link.AppleZoomTarget>
+      <View style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
+        <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
+        {preview && (
+          <GlassCapsule style={local.titleBand}>
+            <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
+            <View style={styles.row}>
+              <View style={styles.meta}>
+                <Icon name="pin" size={14} color={colors.ink} />
+                <Text style={[type.callout, { color: colors.ink }]}>{preview.district}</Text>
               </View>
-            )}
-          </View>
-        </GlassCapsule>
-      )}
+              {photos.length > 1 && (
+                <View style={local.dots} accessible accessibilityLabel={`Photo ${page + 1} of ${photos.length}`}>
+                  {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === page ? colors.ink : colors.tertiary }]} />)}
+                </View>
+              )}
+            </View>
+          </GlassCapsule>
+        )}
       </View>
+    </Link.AppleZoomTarget>
   )
-  const chrome = (count: number) => (
+  const chrome = (
     <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
       <GlassButton icon="back" label="Back" onPress={back} />
-      {count > 0 && <GlassButton icon="expand" label="View photos full screen" onPress={() => setViewer(true)} />}
+      {photos.length > 0 && <GlassButton icon="expand" label="View photos full screen" onPress={() => setViewer(true)} />}
     </View>
   )
 
   if (!l) {
     return (
       <View style={styles.flex}>
-        {hero([], '')}
-        {chrome(0)}
-        <View style={styles.screen}><SyncStatus error={error} /></View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
+          {hero}
+          <View style={styles.screen}><SyncStatus error={error} /></View>
+        </ScrollView>
+        {chrome}
       </View>
     )
   }
-  const title = `${l.make} ${l.model} ${l.year}`
   const upcoming = [...l.booked, ...l.blocks.map((b) => ({ startDate: b.startDate, endDate: b.endDate, block: true }))]
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
 
@@ -81,7 +90,7 @@ export default function ListingScreen() {
   return (
     <View style={styles.flex}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
-        {hero(l.photos, title, l.district)}
+        {hero}
 
         <View style={styles.screen}>
           {l.isMine && l.status !== 'active' && <Banner tone="error" text={l.status === 'hidden' ? 'Hidden after a report.' : 'Paused. Renters can’t see this car.'} />}
@@ -127,7 +136,7 @@ export default function ListingScreen() {
           <SyncStatus updatedAt={updatedAt} error={error} />
         </View>
       </ScrollView>
-      {chrome(l.photos.length)}
+      {chrome}
 
       <View style={[local.bar, { paddingBottom: insets.bottom + 12, backgroundColor: colors.card, borderColor: colors.separator }]}>
         <View style={{ flex: 1 }}>

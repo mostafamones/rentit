@@ -1,5 +1,5 @@
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect'
-import { Link, router } from 'expo-router'
+import { Link } from 'expo-router'
 import { SymbolView } from 'expo-symbols'
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react'
 import {
@@ -7,11 +7,11 @@ import {
   type StyleProp, type TextInputProps, type ViewStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { imageUrl, type Listing, type RentalRequest } from './api'
+import { imageUrl, listingPreviews, type Listing, type RentalRequest } from './api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp, type RequestStatus } from './domain/rental'
 import { useReduceMotion, useReduceTransparency } from './a11y'
 import { placeMenu, type Rect } from './menuPlacement'
-import { type, useColors } from './theme'
+import { type, useColors, useScheme } from './theme'
 
 const ICONS = {
   chevronDown: { ios: 'chevron.down', android: 'keyboard_arrow_down' },
@@ -55,8 +55,9 @@ export function GlassCapsule({ children, style, interactive, dark }: {
   children: ReactNode; style?: StyleProp<ViewStyle>; interactive?: boolean; dark?: boolean
 }) {
   const colors = useColors()
+  const scheme = useScheme()
   if (useGlass()) {
-    return <GlassView isInteractive={interactive} glassEffectStyle="regular" colorScheme={dark ? 'dark' : 'auto'} style={[styles.capsule, style]}>{children}</GlassView>
+    return <GlassView isInteractive={interactive} glassEffectStyle="regular" colorScheme={dark ? 'dark' : scheme} style={[styles.capsule, style]}>{children}</GlassView>
   }
   const fallback = dark ? { backgroundColor: 'rgba(0,0,0,0.6)' } : { backgroundColor: colors.scrim, borderColor: colors.separator, borderWidth: StyleSheet.hairlineWidth }
   return <View style={[styles.capsule, fallback, style]}>{children}</View>
@@ -123,6 +124,7 @@ function AnchoredMenu({ anchor, label, items, onClosed }: {
   const window = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const glass = useGlass()
+  const scheme = useScheme()
   const reduceMotion = useReduceMotion()
   const selected = useRef<ComponentRef<typeof View>>(null)
   const progress = useRef(new Animated.Value(0)).current
@@ -146,7 +148,7 @@ function AnchoredMenu({ anchor, label, items, onClosed }: {
       <Animated.View accessibilityViewIsModal accessibilityLabel={label} onAccessibilityEscape={() => dismiss()}
         style={[styles.menu, place, { opacity: progress, transformOrigin: origin, transform: [{ scale }] },
           !glass && { backgroundColor: colors.card, borderColor: colors.separator, borderWidth: StyleSheet.hairlineWidth }]}>
-        {glass && <GlassView glassEffectStyle="regular" style={[StyleSheet.absoluteFill, styles.menuFace]} />}
+        {glass && <GlassView glassEffectStyle="regular" colorScheme={scheme} style={[StyleSheet.absoluteFill, styles.menuFace]} />}
         <ScrollView bounces={false} style={styles.menuScroll} contentContainerStyle={styles.menuList}>
           {items.map((item) => (
             <Pressable key={item.key} ref={item.checked ? selected : undefined} accessibilityRole="menuitem" accessibilityLabel={item.title}
@@ -296,49 +298,69 @@ export function Photo({ uri, width, height, label, contain }: { uri?: string; wi
   )
 }
 
-export function ListingCard({ listing }: { listing: Listing }) {
+/**
+ * A listing card. Full width by default with swipeable photos; `width` sizes it for a horizontal rail, where it shows the
+ * cover photo only (a pager inside a rail would fight the rail's own swipe).
+ */
+export function ListingCard({ listing, width: cardWidth }: { listing: Listing; width?: number }) {
   const colors = useColors()
-  // shortcut: card width is the window minus the screens' 16pt gutters; measure with onLayout if cards ever sit in columns.
-  const width = useWindowDimensions().width - 32
+  const reduceMotion = useReduceMotion()
+  // shortcut: full-width cards assume the screens' 16pt gutters; measure with onLayout if cards ever sit in columns.
+  const window = useWindowDimensions().width
+  const width = cardWidth ?? window - 32
   const height = Math.round(width * 10 / 16)
   const [page, setPage] = useState(0)
   const count = listing.photos.length
+  const pager = !cardWidth && count > 1
   const title = `${listing.make} ${listing.model} ${listing.year}`
-  // Not a Link asChild: its Slot spreads the child's style, which erases a Pressable style callback.
-  const open = () => router.push({ pathname: '/listing/[id]', params: { id: String(listing.id), photo: String(page) } })
+  // Every direct child of an expo-router Slot (Link asChild, Link.AppleZoom) gets a single plain style object: Radix spreads
+  // the child's style, so a Pressable style callback is erased and a style array crashes development builds.
+  const frame = { width, height }
+  const photos = pager ? (
+    <View style={frame}>
+      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
+        onScroll={(e) => { const i = Math.round(e.nativeEvent.contentOffset.x / width); if (i !== page) setPage(i) }}>
+        {listing.photos.map((p) => <Photo key={p.id} uri={imageUrl(p.url)} width={width} height={height} />)}
+      </ScrollView>
+    </View>
+  ) : (
+    <View style={frame}><Photo uri={imageUrl(listing.photos[0]?.url)} width={width} height={height} /></View>
+  )
   return (
-    <Pressable accessibilityRole="button" onPress={open}
-      accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}${count > 1 ? `, photo ${page + 1} of ${count}` : ''}`}
-      style={({ pressed }) => [styles.listing, { backgroundColor: colors.card, borderColor: colors.separator, opacity: pressed ? 0.85 : 1 }]}>
-      <View style={styles.listingClip}>
-        <View style={{ width, height }}>
-          {count > 1 ? (
-            <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
-              onScroll={(e) => { const i = Math.round(e.nativeEvent.contentOffset.x / width); if (i !== page) setPage(i) }}>
-              {listing.photos.map((p) => <Photo key={p.id} uri={imageUrl(p.url)} width={width} height={height} />)}
-            </ScrollView>
-          ) : <Photo uri={imageUrl(listing.photos[0]?.url)} width={width} height={height} />}
-          {listing.featured && <GlassCapsule style={styles.overlayTag}><Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>Featured</Text></GlassCapsule>}
-          {count > 1 && (
-            <GlassCapsule style={[styles.overlayTag, styles.overlayRight]}>
-              <Text style={[type.caption, styles.overlayText, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>{page + 1}/{count}</Text>
-            </GlassCapsule>
+    // Card surface and shadow live outside the Link so no Slot touches them.
+    <View style={[styles.listing, { width, backgroundColor: colors.card, borderColor: colors.separator }]}>
+      <Link href={{ pathname: '/listing/[id]', params: { id: String(listing.id), photo: String(page) } }} asChild>
+        <Pressable style={styles.listingClip} onPress={() => listingPreviews.set(listing.id, listing)} accessibilityRole="button"
+          accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}${pager ? `, photo ${page + 1} of ${count}` : ''}`}>
+          {({ pressed }) => (
+            <View style={pressed ? styles.pressed : undefined}>
+              <View style={frame}>
+                {/* iOS 18+ zooms the visible photo into the listing hero and back, with pull-down to close; elsewhere a normal push. */}
+                {reduceMotion ? photos : <Link.AppleZoom>{photos}</Link.AppleZoom>}
+                {listing.featured && !cardWidth && <GlassCapsule style={styles.overlayTag}><Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>Featured</Text></GlassCapsule>}
+                {pager && (
+                  <GlassCapsule style={[styles.overlayTag, styles.overlayRight]}>
+                    <Text style={[type.caption, styles.overlayText, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>{page + 1}/{count}</Text>
+                  </GlassCapsule>
+                )}
+              </View>
+              <View style={styles.listingBody}>
+                <View style={styles.row}>
+                  <Text numberOfLines={1} style={[type.headline, styles.flex, { color: colors.ink }]}>{title}</Text>
+                  <Text style={[type.price, { color: colors.ink }]}>{formatEgp(listing.dailyRateEgp)}<Text style={[type.footnote, { color: colors.secondary, fontWeight: '400' }]}> /day</Text></Text>
+                </View>
+                <View style={styles.meta}>
+                  <Icon name="pin" size={13} />
+                  <Text numberOfLines={1} style={[type.subheadline, { color: colors.ink, flexShrink: 1 }]}>{listing.district}</Text>
+                </View>
+                {!cardWidth && <Text style={[type.subheadline, { color: colors.secondary }]}>{specLine(listing)}</Text>}
+                {!cardWidth && <OwnerLine owner={listing.owner} />}
+              </View>
+            </View>
           )}
-        </View>
-        <View style={styles.listingBody}>
-          <View style={styles.row}>
-            <Text numberOfLines={1} style={[type.headline, styles.flex, { color: colors.ink }]}>{title}</Text>
-            <Text style={[type.price, { color: colors.ink }]}>{formatEgp(listing.dailyRateEgp)}<Text style={[type.footnote, { color: colors.secondary, fontWeight: '400' }]}> /day</Text></Text>
-          </View>
-          <View style={styles.meta}>
-            <Icon name="pin" size={13} />
-            <Text style={[type.subheadline, { color: colors.ink }]}>{listing.district}</Text>
-          </View>
-          <Text style={[type.subheadline, { color: colors.secondary }]}>{specLine(listing)}</Text>
-          <OwnerLine owner={listing.owner} />
-        </View>
-      </View>
-    </Pressable>
+        </Pressable>
+      </Link>
+    </View>
   )
 }
 
@@ -393,6 +415,7 @@ export const styles = StyleSheet.create({
   // Outer layer carries the shadow (iOS drops shadows on clipped views); the inner layer clips to the corners.
   listing: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, elevation: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
   listingClip: { borderRadius: 18, overflow: 'hidden' },
+  pressed: { opacity: 0.85 },
   overlayTag: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 10, paddingVertical: 4 },
   overlayRight: { left: undefined, right: 10 },
   overlayText: { fontWeight: '600' },

@@ -1,8 +1,8 @@
 import { router } from 'expo-router'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { api, type RentalRequest } from '../src/api'
 import { useSession } from '../src/session'
-import { type, useColors } from '../src/theme'
+import { APPEARANCE_PREFS, setAppearancePref, type, useAppearancePref, useColors } from '../src/theme'
 import { Badge, Button, Card, Icon, SignInPrompt, styles } from '../src/ui'
 import { usePoll } from '../src/usePoll'
 
@@ -34,6 +34,7 @@ export default function Account() {
           <Icon name="chevronRight" size={14} color={colors.tertiary} />
         </Pressable>
       )}
+      <Appearance />
       <Card>
         <Text style={[type.headline, { color: colors.ink }]}>Renting terms</Text>
         {[
@@ -47,3 +48,28 @@ export default function Account() {
     </ScrollView>
   )
 }
+
+const PREF_LABEL = { system: 'System', light: 'Light', dark: 'Dark' }
+
+function Appearance() {
+  const colors = useColors()
+  const pref = useAppearancePref()
+  return (
+    <View accessibilityRole="radiogroup" accessibilityLabel="Appearance" style={[styles.card, local.group, { backgroundColor: colors.card, borderColor: colors.separator }]}>
+      <Text accessibilityRole="header" style={[type.headline, local.groupTitle, { color: colors.ink }]}>Appearance</Text>
+      {APPEARANCE_PREFS.map((p, i) => (
+        <Pressable key={p} accessibilityRole="radio" accessibilityState={{ checked: p === pref }} onPress={() => setAppearancePref(p)}
+          style={({ pressed }) => [styles.menuItem, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.separator },
+            pressed && { backgroundColor: colors.fill }]}>
+          <Text style={[type.body, styles.flex, { color: colors.ink }]}>{PREF_LABEL[p]}</Text>
+          {p === pref && <Icon name="check" size={16} color={colors.ink} />}
+        </Pressable>
+      ))}
+    </View>
+  )
+}
+
+const local = StyleSheet.create({
+  group: { padding: 0, gap: 0, overflow: 'hidden' },
+  groupTitle: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+})

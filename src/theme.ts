@@ -1,4 +1,6 @@
-import { useColorScheme } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
+import { useSyncExternalStore } from 'react'
+import { Appearance, useColorScheme } from 'react-native'
 
 // Neutral grayscale chrome; photos carry the colour. Tints only for status.
 const light = {
@@ -42,10 +44,46 @@ const dark: typeof light = {
 }
 
 export type Colors = typeof light
-export const useColors = () => (useColorScheme() === 'dark' ? dark : light)
+
+// --- Appearance: System / Light / Dark, kept on the device. ---
+
+export type AppearancePref = 'system' | 'light' | 'dark'
+export const APPEARANCE_PREFS: readonly AppearancePref[] = ['system', 'light', 'dark']
+const PREF_KEY = 'rentit.appearance'
+const readPref = (): AppearancePref => {
+  try {
+    const v = SecureStore.getItem(PREF_KEY)
+    return v === 'light' || v === 'dark' ? v : 'system'
+  } catch { return 'system' }
+}
+// Read synchronously at import so the first frame is already in the chosen scheme (no flash, no async gate).
+let pref = readPref()
+// 'unspecified' clears the native override (UIWindow and AppCompat night mode) so the app follows the OS again.
+const applyNative = (p: AppearancePref) => Appearance.setColorScheme(p === 'system' ? 'unspecified' : p)
+if (pref !== 'system') applyNative(pref)
+const prefListeners = new Set<() => void>()
+
+export function setAppearancePref(next: AppearancePref) {
+  if (next === pref) return
+  pref = next
+  applyNative(next)
+  prefListeners.forEach((l) => l())
+  SecureStore.setItemAsync(PREF_KEY, next).catch(() => {})
+}
+export const useAppearancePref = () =>
+  useSyncExternalStore((l) => { prefListeners.add(l); return () => { prefListeners.delete(l) } }, () => pref)
+
+/** The scheme in effect: the saved choice, else the OS. */
+export function useScheme(): 'light' | 'dark' {
+  const system = useColorScheme()
+  const p = useAppearancePref()
+  return p === 'system' ? (system === 'dark' ? 'dark' : 'light') : p
+}
+export const useColors = () => (useScheme() === 'dark' ? dark : light)
 
 // System font throughout; sizes follow the platform text styles.
 export const type = {
+  largeTitle: { fontSize: 32, fontWeight: '700', letterSpacing: 0.2 },
   title: { fontSize: 22, fontWeight: '700' },
   headline: { fontSize: 17, fontWeight: '600' },
   body: { fontSize: 16 },

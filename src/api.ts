@@ -21,6 +21,9 @@ export type Listing = ListingFields & {
 }
 export type ListingDetail = Listing & { booked: Range[]; blocks: (Range & { id: number })[] }
 
+/** The card's copy of a listing, so the detail hero has its photo on the first frame, before the detail fetch returns. */
+export const listingPreviews = new Map<number, Listing>()
+
 export type RentalRequest = {
   id: number; role: 'renter' | 'owner'; status: RequestStatus; statusReason: string | null
   startDate: string; endDate: string; days: number; dailyRateEgp: number; totalEgp: number; note: string

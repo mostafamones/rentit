@@ -1,6 +1,4 @@
-import { ListingsScreen } from './(tabs)/browse'
+import Search from './(tabs)/search'
 
 /** Android's search screen, opened from the floating search button; iOS uses the search tab. */
-export default function Search() {
-  return <ListingsScreen search />
-}
+export default Search
