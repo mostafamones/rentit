@@ -289,18 +289,26 @@ export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seat
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
 /**
- * Shows a placeholder for a missing or failed photo. Poster mode keeps the whole photo sharp and uses a blurred
- * copy to fill the frame. Solid poster mode skips the blur.
+ * Shows a placeholder for a missing or failed photo. Poster mode shows the API's hero copy (the whole photo with its top
+ * edge continued above it); if that fails, or with Reduce Transparency, the plain uncropped photo sits at the bottom.
  */
 export function Photo({ uri, width, height, label, contain, poster }: {
-  uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: 'blur' | 'solid'
+  uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: boolean
 }) {
   const colors = useColors()
   const reduceTransparency = useReduceTransparency()
   // Keyed to the URI so a failure or size never sticks to a recycled view that now shows another photo.
   const [failed, setFailed] = useState<string>()
+  const [heroFailed, setHeroFailed] = useState<string>()
   const [size, setSize] = useState<{ uri: string; aspect: number }>()
   const show = !!uri && failed !== uri
+  if (poster && show && !reduceTransparency && heroFailed !== uri) {
+    // The hero has the frame's 1:1.05 aspect, so cover crops nothing.
+    return (
+      <Image accessibilityLabel={label} source={{ uri: uri.replace('/uploads/', '/uploads/hero/') }} resizeMode="cover"
+        onError={() => setHeroFailed(uri)} style={{ width, height, backgroundColor: colors.fill }} />
+    )
+  }
   if (poster && show) {
     const aspect = size?.uri === uri ? size.aspect : 0
     // Contain the sharp photo even if the native loader provides no dimensions for bottom alignment.
@@ -308,10 +316,6 @@ export function Photo({ uri, width, height, label, contain, poster }: {
     const h = aspect ? Math.min(height, width / aspect) : height
     return (
       <View style={{ width, height, backgroundColor: colors.fill, overflow: 'hidden' }}>
-        {poster === 'blur' && !reduceTransparency && (
-          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" resizeMethod="resize" blurRadius={40} pointerEvents="none"
-            accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-        )}
         <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" onError={() => setFailed(uri)}
           onLoad={(e) => {
             const source = e.nativeEvent.source

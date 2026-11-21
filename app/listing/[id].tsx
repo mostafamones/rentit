@@ -33,27 +33,30 @@ export default function ListingScreen() {
 
   // One stable tree from loading to loaded; the zoom lands on an empty frame over the gallery, so photos never sit inside
   // the transition's native wrapper and show even if it registers nothing.
+  // The title sits under the photo so it never covers the car.
   const hero = (
-    <View collapsable={false} style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
-      <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
-      <Link.AppleZoomTarget><ZoomFrame width={width} height={heroHeight} /></Link.AppleZoomTarget>
+    <>
+      <View collapsable={false} style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
+        <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
+        <Link.AppleZoomTarget><ZoomFrame width={width} height={heroHeight} /></Link.AppleZoomTarget>
+      </View>
       {preview && (
-        <GlassCapsule style={local.titleBand}>
+        <View style={local.titleBlock}>
           <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
           <View style={styles.row}>
             <View style={styles.meta}>
-              <Icon name="pin" size={14} color={colors.ink} />
-              <Text style={[type.callout, { color: colors.ink }]}>{preview.district}</Text>
+              <Icon name="pin" size={14} color={colors.secondary} />
+              <Text style={[type.callout, { color: colors.secondary }]}>{preview.district}</Text>
             </View>
             {photos.length > 1 && (
-              <View style={local.dots} accessible accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`}>
-                {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === shown ? colors.ink : colors.tertiary }]} />)}
-              </View>
+              <Text accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`} style={[type.footnote, { color: colors.secondary, fontVariant: ['tabular-nums'] }]}>
+                {shown + 1} / {photos.length}
+              </Text>
             )}
           </View>
-        </GlassCapsule>
+        </View>
       )}
-    </View>
+    </>
   )
   const chrome = (
     <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -158,7 +161,7 @@ export default function ListingScreen() {
   )
 }
 
-/** Swipeable photos; the title band shows the page dots. Tapping a photo opens it full screen. */
+/** Swipeable photos; the title below shows the page count. Tapping a photo opens it full screen. */
 function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
   photos: Photo[]; title: string; width: number; height: number; page: number; onPage(i: number): void; onOpen(): void
 }) {
@@ -173,8 +176,7 @@ function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
       {photos.map((p, i) => (
         <Pressable key={p.id} style={{ width, height }} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
           accessibilityHint="Opens full screen" onPress={onOpen}>
-          {/* Blur only near the current page so a long gallery doesn't decode a blurred copy of every photo. */}
-          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} poster={Math.abs(i - page) <= 1 ? 'blur' : 'solid'} />
+          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} poster />
         </Pressable>
       ))}
     </ScrollView>
@@ -208,9 +210,7 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
 const local = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   chrome: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titleBand: { position: 'absolute', left: 12, right: 12, bottom: 12, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, gap: 4 },
-  dots: { flexDirection: 'row', gap: 5 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
+  titleBlock: { paddingHorizontal: 16, paddingTop: 14, gap: 4 },
   specs: { flexDirection: 'row', flexWrap: 'wrap', gap: 0, paddingVertical: 8 },
   spec: { width: '33.33%', paddingVertical: 8, gap: 2 },
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
