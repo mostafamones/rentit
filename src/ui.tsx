@@ -289,7 +289,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
   const photo = imageUrl(listing.photos[0]?.url)
   const title = `${listing.make} ${listing.model} ${listing.year}`
   const image = (
-    <View style={[styles.photo, { backgroundColor: colors.fill }]}>
+    <View style={StyleSheet.flatten([styles.photo, { backgroundColor: colors.fill }])}>
       {photo ? <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Icon name="car" size={40} color={colors.tertiary} />}
     </View>
   )
