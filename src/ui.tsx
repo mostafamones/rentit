@@ -229,15 +229,11 @@ export function Banner({ text, tone = 'info' }: { text: string; tone?: 'info' | 
   )
 }
 
-/** "Updated 14:05" or the last fetch error, so people know whether what they see is current. */
-export function SyncStatus({ updatedAt, error }: { updatedAt?: Date; error?: string }) {
+export function SyncStatus({ loading = true, error }: { loading?: boolean; error?: string }) {
   const colors = useColors()
-  if (error) return <Banner tone="error" text={updatedAt ? `Offline since ${clock(updatedAt)}. ${error}` : error} />
-  if (!updatedAt) return <ActivityIndicator style={styles.loading} color={colors.secondary} />
-  return <Text style={[type.caption, styles.sync, { color: colors.tertiary }]}>Updated {clock(updatedAt)}</Text>
+  if (error) return <Banner tone="error" text={error} />
+  return loading ? <ActivityIndicator style={styles.loading} color={colors.secondary} /> : null
 }
-
-const clock = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 
 export function Empty({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   const colors = useColors()
@@ -490,7 +486,6 @@ export const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 16, gap: 10 },
   sectionTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   banner: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  sync: { textAlign: 'center' },
   loading: { marginVertical: 24 },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 40, paddingHorizontal: 24 },
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
@@ -506,7 +501,7 @@ export const styles = StyleSheet.create({
   compactBody: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, gap: 3 },
   requestRow: { flexDirection: 'row', gap: 12, padding: 12, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center' },
   thumb: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden' },
-  screen: { padding: 16, gap: 14, paddingBottom: 40 },
+  screen: { padding: 16, gap: 14 },
   headerButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 })
 

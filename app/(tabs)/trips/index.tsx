@@ -7,7 +7,7 @@ import { usePoll } from '../../../src/usePoll'
 
 export default function Trips() {
   const { user } = useSession()
-  const { data, error, updatedAt, refreshing, refresh } = usePoll(
+  const { data, error, refreshing, refresh } = usePoll(
     user ? () => api<{ requests: RentalRequest[] }>('/requests?role=renter').then((r) => r.requests) : null, String(user?.id))
 
   if (!user) return <SignInPrompt title="Sign in to see your trips" onPress={() => router.push('/sign-in')} />
@@ -22,7 +22,7 @@ export default function Trips() {
       {open.map((r) => <RequestRow key={r.id} request={r} onPress={() => router.push(`/request/${r.id}`)} />)}
       {past.length > 0 && <SectionTitle>Closed</SectionTitle>}
       {past.map((r) => <RequestRow key={r.id} request={r} onPress={() => router.push(`/request/${r.id}`)} />)}
-      <SyncStatus updatedAt={updatedAt} error={error} />
+      <SyncStatus loading={data === undefined} error={error} />
     </ScrollView>
   )
 }

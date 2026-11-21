@@ -28,7 +28,7 @@ export default function Search() {
   const current = useFilters()
   const [q, setQ] = useState('')
   const params = new URLSearchParams(Object.entries({ ...current, q: q.trim() }).filter(([, v]) => v)).toString()
-  const { data, error, updatedAt, refreshing, refresh } = usePoll(
+  const { data, error, refreshing, refresh } = usePoll(
     () => api<{ listings: Listing[] }>(`/listings${params ? `?${params}` : ''}`).then((r) => r.listings), params)
   const set = (key: keyof Filters) => (value: string) => setFilters({ ...filters, [key]: value })
   const active = Object.values(current).some(Boolean)
@@ -39,7 +39,7 @@ export default function Search() {
       <Stack.SearchBar placeholder="Make, model or area" autoFocus autoCapitalize="none" hideWhenScrolling={false}
         onChangeText={(e) => setQ(e.nativeEvent.text)} onCancelButtonPress={() => setQ('')} onClose={() => setQ('')} />
       <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.screen, { paddingBottom: 96 }]}
+        contentContainerStyle={styles.screen}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 16 }} style={{ marginHorizontal: -16, paddingLeft: 16 }}>
           <MenuPill label="Pickup area" value={current.district} options={areaOptions} onSelect={set('district')} highlight={!!current.district} />
@@ -62,7 +62,7 @@ export default function Search() {
           <Empty title={q.trim() ? `No cars for “${q.trim()}”` : 'No cars match'}
             action={active ? <Button kind="secondary" title="Clear filters" onPress={clear} /> : undefined} />
         )}
-        <SyncStatus updatedAt={updatedAt} error={error} />
+        <SyncStatus loading={data === undefined} error={error} />
       </ScrollView>
     </View>
   )

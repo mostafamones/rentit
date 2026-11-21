@@ -11,7 +11,7 @@ const SLACK = 16
  */
 export function heroHeight(width: number, screenHeight: number, aspect?: number) {
   const max = Math.round(Math.min(width * 1.25, screenHeight * 0.6))
-  const min = Math.min(Math.round(width * 0.9), max)
+  const min = Math.min(Math.round(width * 1.05), max)
   if (!(aspect! > 0)) return min
   const natural = width / aspect!
   return natural > max ? max : natural >= min - SLACK ? Math.round(natural) : min

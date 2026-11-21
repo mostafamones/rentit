@@ -23,7 +23,7 @@ export default function ListingScreen() {
   // Opens on the photo the card was showing.
   const [page, setPage] = useState(() => Number(photo) || 0)
   const [viewer, setViewer] = useState(false)
-  const { data: l, error, updatedAt } = usePoll(() => api<{ listing: ListingDetail }>(`/listings/${id}`).then((r) => r.listing), `${id}:${user?.id}`)
+  const { data: l, error } = usePoll(() => api<{ listing: ListingDetail }>(`/listings/${id}`).then((r) => r.listing), `${id}:${user?.id}`)
   const back = () => (router.canGoBack() ? router.back() : router.replace('/browse'))
   // Re-renders when a photo's size first becomes known; the sizes themselves live in photoAspects.
   const [, setSized] = useState(0)
@@ -83,7 +83,7 @@ export default function ListingScreen() {
   if (!l) {
     return (
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
+        <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never">
           {hero}
           {panel(<SyncStatus error={error} />)}
         </ScrollView>
@@ -109,7 +109,7 @@ export default function ListingScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
+      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never">
         {hero}
 
         {panel(<>
@@ -153,7 +153,7 @@ export default function ListingScreen() {
               Report listing
             </Text>
           )}
-          <SyncStatus updatedAt={updatedAt} error={error} />
+          <SyncStatus loading={false} error={error} />
         </>)}
       </ScrollView>
       {chrome}
@@ -229,7 +229,7 @@ const local = StyleSheet.create({
   titleBlock: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
   specs: { flexDirection: 'row', flexWrap: 'wrap', gap: 0, paddingVertical: 8 },
   spec: { width: '33.33%', paddingVertical: 8, gap: 2 },
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  bar: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   viewer: { flex: 1, backgroundColor: '#000000' },
   counter: { paddingHorizontal: 12, paddingVertical: 6 },
 })

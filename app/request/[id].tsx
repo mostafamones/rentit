@@ -12,7 +12,7 @@ export default function RequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const colors = useColors()
   const { user, ready } = useSession()
-  const { data: r, setData, error, updatedAt, refreshing, refresh } = usePoll(
+  const { data: r, setData, error, refreshing, refresh } = usePoll(
     user ? () => api<{ request: RentalRequest }>(`/requests/${id}`).then((x) => x.request) : null, `${id}:${user?.id}`)
   const [busy, setBusy] = useState<string>()
   const [actionError, setActionError] = useState<string>()
@@ -110,7 +110,7 @@ export default function RequestScreen() {
           onPress={() => act('cancel', owner ? 'Cancel rental' : 'Cancel request',
             r.status === 'accepted' ? 'The dates will open up again and the other party will see the cancellation.' : 'Withdraw this request?')} />
       )}
-      <SyncStatus updatedAt={updatedAt} error={error} />
+      <SyncStatus loading={false} error={error} />
     </ScrollView>
   )
 }

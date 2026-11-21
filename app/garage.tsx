@@ -12,7 +12,7 @@ const LISTING_BADGE = { active: ['Live', 'green'], paused: ['Paused', 'gray'], h
 export default function Garage() {
   const colors = useColors()
   const { user } = useSession()
-  const { data, error, updatedAt, refreshing, refresh } = usePoll(user ? async () => {
+  const { data, error, refreshing, refresh } = usePoll(user ? async () => {
     const [cars, incoming] = await Promise.all([
       api<{ listings: Listing[] }>('/listings/mine'), api<{ requests: RentalRequest[] }>('/requests?role=owner'),
     ])
@@ -52,7 +52,7 @@ export default function Garage() {
           </Pressable>
         )
       })}
-      <SyncStatus updatedAt={updatedAt} error={error} />
+      <SyncStatus loading={data === undefined} error={error} />
     </ScrollView>
   )
 }

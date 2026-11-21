@@ -13,7 +13,7 @@ export default function Browse() {
   const { user } = useSession()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
-  const { data, error, updatedAt, refreshing, refresh } = usePoll(
+  const { data, error, refreshing, refresh } = usePoll(
     () => api<{ listings: Listing[] }>('/listings').then((r) => r.listings), 'browse')
   const featured = data?.filter((l) => l.featured) ?? []
   // Narrower than the screen so the next card peeks in and the rail reads as scrollable.
@@ -24,10 +24,13 @@ export default function Browse() {
     <View style={styles.flex}>
       {/* No native header: iOS insets the scroll view for the status bar and tab bar itself; Android pads by the inset. */}
       <ScrollView contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[styles.screen, { paddingBottom: 96, paddingTop: Platform.OS === 'ios' ? 8 : insets.top + 8 }]}
+        contentContainerStyle={[styles.screen, Platform.OS === 'ios'
+          ? { paddingTop: 8 }
+          : { paddingTop: insets.top + 8, paddingBottom: 76 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         <View style={styles.row}>
-          <Text accessibilityRole="header" numberOfLines={2} style={[type.largeTitle, styles.flex, { color: colors.ink }]}>{first ? `Welcome back, ${first}` : 'Welcome'}</Text>
+          <Text accessibilityRole="header" numberOfLines={1} adjustsFontSizeToFit
+            style={[type.largeTitle, styles.flex, { color: colors.ink }]}>{first ? `Welcome back, ${first}` : 'Welcome'}</Text>
           <AccountButton />
         </View>
         {featured.length > 0 && (
@@ -42,7 +45,7 @@ export default function Browse() {
         {!!data?.length && <SectionTitle>All cars</SectionTitle>}
         {data?.map((listing) => <ListingCard key={listing.id} listing={listing} />)}
         {data?.length === 0 && <Empty title="No cars listed yet" />}
-        <SyncStatus updatedAt={updatedAt} error={error} />
+        <SyncStatus loading={data === undefined} error={error} />
       </ScrollView>
       {/* iOS has the system search tab at the bottom right; Android gets the same action as a floating button. */}
       {Platform.OS !== 'ios' && (

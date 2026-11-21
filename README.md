@@ -54,7 +54,7 @@ Reset everything by stopping the API and deleting `./data`.
 - **Contacts** (phone, email) are returned only to the renter and owner of an *accepted* request.
 - Renter can cancel pending or accepted requests; owner accepts/declines pending and can cancel accepted ones (until the
   return date). New listings start paused and need one photo to publish.
-- Status updates: screens refetch on focus and poll every 15 s, with an "Updated hh:mm" / offline indicator.
+- Status updates: screens refetch on focus and poll every 15 s. Failed fetches show an error.
 
 ## Manual review (reports)
 
