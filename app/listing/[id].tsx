@@ -1,7 +1,7 @@
 import { Link, router, useLocalSearchParams } from 'expo-router'
 import { useState, type ReactNode } from 'react'
 import { Alert, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { api, imageUrl, listingPreviews, type ListingDetail } from '../../src/api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
@@ -46,57 +46,49 @@ export default function ListingScreen() {
   const hero = (
     <>
       <View collapsable={false} style={{ width, height: heroH, backgroundColor: colors.fill }}>
-        <Gallery photos={photos} title={title} width={width} height={heroH} vignette={56} page={page} onPage={onPage}
+        <Gallery photos={photos} title={title} width={width} height={heroH} vignette={insets.top + 56} page={page} onPage={onPage}
           onAspect={() => setSized((n) => n + 1)} onOpen={() => setViewer(true)} />
         <Link.AppleZoomTarget><ZoomFrame width={width} height={heroH} /></Link.AppleZoomTarget>
       </View>
     </>
   )
-  // The fill behind the panel makes its corners visible below the full photo.
+  // Overlap the gallery so the photo shows through both rounded corners.
   const panel = (children: ReactNode) => (
-    <View style={{ backgroundColor: colors.fill }}>
-      <View style={[local.panel, { backgroundColor: colors.background }]}>
-        {preview && (
-          <View style={local.titleBlock}>
-            <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
-            <View style={styles.row}>
-              <View style={styles.meta}>
-                <Icon name="pin" size={14} color={colors.secondary} />
-                <Text style={[type.callout, { color: colors.secondary }]}>{preview.district}</Text>
-              </View>
-              {photos.length > 1 && (
-                <Text accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`} style={[type.footnote, { color: colors.secondary, fontVariant: ['tabular-nums'] }]}>
-                  {shown + 1} / {photos.length}
-                </Text>
-              )}
+    <View style={[local.panel, { backgroundColor: colors.background }]}>
+      {preview && (
+        <View style={local.titleBlock}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
+          <View style={styles.row}>
+            <View style={styles.meta}>
+              <Icon name="pin" size={14} color={colors.secondary} />
+              <Text style={[type.callout, { color: colors.secondary }]}>{preview.district}</Text>
             </View>
+            {photos.length > 1 && (
+              <Text accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`} style={[type.footnote, { color: colors.secondary, fontVariant: ['tabular-nums'] }]}>
+                {shown + 1} / {photos.length}
+              </Text>
+            )}
           </View>
-        )}
-        <View style={styles.screen}>{children}</View>
-      </View>
+        </View>
+      )}
+      <View style={styles.screen}>{children}</View>
     </View>
   )
   const chrome = (
-    <View style={[local.chrome, { top: 6 }]} pointerEvents="box-none">
+    <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
       <GlassButton icon="back" label="Back" onPress={back} />
       {photos.length > 0 && <GlassButton icon="expand" label="View photos full screen" onPress={() => setViewer(true)} />}
     </View>
   )
-  const insetScreen = (children: ReactNode) => (
-    <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
-      <View style={styles.flex}>{children}</View>
-    </SafeAreaView>
-  )
-
   if (!l) {
-    return insetScreen(
-      <>
+    return (
+      <View style={[styles.flex, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
           {hero}
           {panel(<SyncStatus error={error} />)}
         </ScrollView>
         {chrome}
-      </>,
+      </View>
     )
   }
   const upcoming = [...l.booked, ...l.blocks.map((b) => ({ startDate: b.startDate, endDate: b.endDate, block: true }))]
@@ -115,8 +107,8 @@ export default function ListingScreen() {
     ])
   }
 
-  return insetScreen(
-    <>
+  return (
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
         {hero}
 
@@ -180,7 +172,7 @@ export default function ListingScreen() {
       </View>
 
       {viewer && <PhotoViewer photos={l.photos} title={title} start={shown} onClose={() => setViewer(false)} />}
-    </>,
+    </View>
   )
 }
 
@@ -233,7 +225,7 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
 const local = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   chrome: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  panel: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderCurve: 'continuous' },
+  panel: { marginTop: -16, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderCurve: 'continuous' },
   titleBlock: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
   specs: { flexDirection: 'row', flexWrap: 'wrap', gap: 0, paddingVertical: 8 },
   spec: { width: '33.33%', paddingVertical: 8, gap: 2 },
