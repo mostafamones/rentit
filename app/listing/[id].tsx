@@ -52,26 +52,28 @@ export default function ListingScreen() {
       </View>
     </>
   )
-  // One continuous panel below the photo; it rises over the photo's bottom edge just enough to show its rounded corners.
+  // The fill behind the panel makes its corners visible below the full photo.
   const panel = (children: ReactNode) => (
-    <View style={[local.panel, { backgroundColor: colors.background }]}>
-      {preview && (
-        <View style={local.titleBlock}>
-          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
-          <View style={styles.row}>
-            <View style={styles.meta}>
-              <Icon name="pin" size={14} color={colors.secondary} />
-              <Text style={[type.callout, { color: colors.secondary }]}>{preview.district}</Text>
+    <View style={{ backgroundColor: colors.fill }}>
+      <View style={[local.panel, { backgroundColor: colors.background }]}>
+        {preview && (
+          <View style={local.titleBlock}>
+            <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
+            <View style={styles.row}>
+              <View style={styles.meta}>
+                <Icon name="pin" size={14} color={colors.secondary} />
+                <Text style={[type.callout, { color: colors.secondary }]}>{preview.district}</Text>
+              </View>
+              {photos.length > 1 && (
+                <Text accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`} style={[type.footnote, { color: colors.secondary, fontVariant: ['tabular-nums'] }]}>
+                  {shown + 1} / {photos.length}
+                </Text>
+              )}
             </View>
-            {photos.length > 1 && (
-              <Text accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`} style={[type.footnote, { color: colors.secondary, fontVariant: ['tabular-nums'] }]}>
-                {shown + 1} / {photos.length}
-              </Text>
-            )}
           </View>
-        </View>
-      )}
-      <View style={styles.screen}>{children}</View>
+        )}
+        <View style={styles.screen}>{children}</View>
+      </View>
     </View>
   )
   const chrome = (
@@ -80,16 +82,21 @@ export default function ListingScreen() {
       {photos.length > 0 && <GlassButton icon="expand" label="View photos full screen" onPress={() => setViewer(true)} />}
     </View>
   )
+  const insetScreen = (children: ReactNode) => (
+    <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
+      <View style={styles.flex}>{children}</View>
+    </SafeAreaView>
+  )
 
   if (!l) {
-    return (
-      <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
+    return insetScreen(
+      <>
         <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
           {hero}
           {panel(<SyncStatus error={error} />)}
         </ScrollView>
         {chrome}
-      </SafeAreaView>
+      </>,
     )
   }
   const upcoming = [...l.booked, ...l.blocks.map((b) => ({ startDate: b.startDate, endDate: b.endDate, block: true }))]
@@ -108,8 +115,8 @@ export default function ListingScreen() {
     ])
   }
 
-  return (
-    <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.background }]}>
+  return insetScreen(
+    <>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} contentInsetAdjustmentBehavior="never">
         {hero}
 
@@ -173,7 +180,7 @@ export default function ListingScreen() {
       </View>
 
       {viewer && <PhotoViewer photos={l.photos} title={title} start={shown} onClose={() => setViewer(false)} />}
-    </SafeAreaView>
+    </>,
   )
 }
 
@@ -226,8 +233,7 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
 const local = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   chrome: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  // Short overlap: covers only the photo's bottom 16pt so the corners read against it.
-  panel: { marginTop: -16, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderCurve: 'continuous' },
+  panel: { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderCurve: 'continuous' },
   titleBlock: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
   specs: { flexDirection: 'row', flexWrap: 'wrap', gap: 0, paddingVertical: 8 },
   spec: { width: '33.33%', paddingVertical: 8, gap: 2 },
