@@ -18,13 +18,13 @@ export function heroHeight(width: number, screenHeight: number, aspect?: number)
 }
 
 /**
- * The whole photo fitted inside a frame and centered, never cropped. `fill` is true when it leaves frame visible,
- * which the hero covers with a blurred copy. Within a point of an edge it snaps to it so no hairline gap shows.
+ * The whole photo fitted inside a frame and centered. `fill` is true when a short photo leaves room above and below.
+ * Within a point of an edge it snaps to it so no hairline gap shows.
  */
 export function fitRect(width: number, height: number, aspect: number) {
   let w = Math.min(width, height * aspect)
   let h = Math.min(height, width / aspect)
   if (width - w < 1) w = width
   if (height - h < 1) h = height
-  return { left: (width - w) / 2, top: (height - h) / 2, width: w, height: h, fill: w < width || h < height }
+  return { left: (width - w) / 2, top: (height - h) / 2, width: w, height: h, fill: h < height }
 }

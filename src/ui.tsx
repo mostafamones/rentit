@@ -306,7 +306,7 @@ function SoftImage({ uri, rect, cover, zoom = 1 }: { uri: string; rect: { left: 
 
 /**
  * Shows a placeholder for a missing or failed photo. Poster mode (the listing hero) shows the whole photo centered and
- * uncropped; frame it leaves visible gets a blurred, zoomed copy. `vignette` softens the top that many points under the
+ * uncropped, with a zoomed, blurred backdrop when the photo is shorter than the frame. `vignette` softens the top under the
  * status bar and buttons: aligned blurred copies of the photo fading out downward, plus a light shade. Reduce
  * Transparency keeps only the shade.
  */

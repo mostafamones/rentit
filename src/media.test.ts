@@ -40,10 +40,10 @@ test('a photo just short of the minimum sets the height itself', () => {
   assert.equal(fitRect(W, h, 1280 / 750).fill, false)
 })
 
-test('a portrait photo is capped and fitted inside, sides filled', () => {
+test('a portrait photo is capped and fitted inside with plain side space', () => {
   assert.equal(heroHeight(W, H, 3 / 4), 488)
   const r = fitRect(W, 488, 3 / 4)
-  assert.deepEqual([r.top, r.height, r.width, r.fill], [0, 488, 366, true])
+  assert.deepEqual([r.top, r.height, r.width, r.fill], [0, 488, 366, false])
   assert.equal(r.left, 12)
 })
 
