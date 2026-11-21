@@ -6,7 +6,8 @@ import { api, imageUrl, listingPreviews, type ListingDetail } from '../../src/ap
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
 import { type, useColors } from '../../src/theme'
-import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, Photo as PhotoImage, SyncStatus, styles } from '../../src/ui'
+import { pageAt } from '../../src/media'
+import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, Photo as PhotoImage, SyncStatus, ZoomFrame, styles } from '../../src/ui'
 import { usePoll } from '../../src/usePoll'
 
 type Photo = ListingDetail['photos'][number]
@@ -28,30 +29,31 @@ export default function ListingScreen() {
   const preview = l ?? listingPreviews.get(Number(id))
   const photos = preview?.photos ?? []
   const title = preview ? `${preview.make} ${preview.model} ${preview.year}` : ''
+  const shown = Math.min(page, Math.max(0, photos.length - 1))
 
-  // One stable tree from loading to loaded: the zoom target must not remount mid-transition.
+  // One stable tree from loading to loaded; the zoom lands on an empty frame over the gallery, so photos never sit inside
+  // the transition's native wrapper and show even if it registers nothing.
   const hero = (
-    <Link.AppleZoomTarget>
-      <View style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
-        <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
-        {preview && (
-          <GlassCapsule style={local.titleBand}>
-            <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
-            <View style={styles.row}>
-              <View style={styles.meta}>
-                <Icon name="pin" size={14} color={colors.ink} />
-                <Text style={[type.callout, { color: colors.ink }]}>{preview.district}</Text>
-              </View>
-              {photos.length > 1 && (
-                <View style={local.dots} accessible accessibilityLabel={`Photo ${page + 1} of ${photos.length}`}>
-                  {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === page ? colors.ink : colors.tertiary }]} />)}
-                </View>
-              )}
+    <View collapsable={false} style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
+      <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
+      <Link.AppleZoomTarget><ZoomFrame width={width} height={heroHeight} /></Link.AppleZoomTarget>
+      {preview && (
+        <GlassCapsule style={local.titleBand}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
+          <View style={styles.row}>
+            <View style={styles.meta}>
+              <Icon name="pin" size={14} color={colors.ink} />
+              <Text style={[type.callout, { color: colors.ink }]}>{preview.district}</Text>
             </View>
-          </GlassCapsule>
-        )}
-      </View>
-    </Link.AppleZoomTarget>
+            {photos.length > 1 && (
+              <View style={local.dots} accessible accessibilityLabel={`Photo ${shown + 1} of ${photos.length}`}>
+                {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === shown ? colors.ink : colors.tertiary }]} />)}
+              </View>
+            )}
+          </View>
+        </GlassCapsule>
+      )}
+    </View>
   )
   const chrome = (
     <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -151,7 +153,7 @@ export default function ListingScreen() {
         </View>
       </View>
 
-      {viewer && <PhotoViewer photos={l.photos} title={title} start={page} onClose={() => setViewer(false)} />}
+      {viewer && <PhotoViewer photos={l.photos} title={title} start={shown} onClose={() => setViewer(false)} />}
     </View>
   )
 }
@@ -161,12 +163,15 @@ function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
   photos: Photo[]; title: string; width: number; height: number; page: number; onPage(i: number): void; onOpen(): void
 }) {
   const colors = useColors()
+  // The opening page is applied once at mount; passing it on every render can jump or blank the pager mid-swipe.
+  const [start] = useState(page)
   if (!photos.length) return <View style={[StyleSheet.absoluteFill, local.center]}><Icon name="car" size={48} color={colors.tertiary} /></View>
   return (
-    <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: page * width, y: 0 }}
-      onMomentumScrollEnd={(e) => onPage(Math.round(e.nativeEvent.contentOffset.x / width))}>
+    <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ width, height }}
+      contentOffset={{ x: Math.min(start, photos.length - 1) * width, y: 0 }}
+      onMomentumScrollEnd={(e) => onPage(pageAt(e.nativeEvent.contentOffset.x, width, photos.length))}>
       {photos.map((p, i) => (
-        <Pressable key={p.id} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
+        <Pressable key={p.id} style={{ width, height }} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
           accessibilityHint="Opens full screen" onPress={onOpen}>
           <PhotoImage uri={imageUrl(p.url)} width={width} height={height} />
         </Pressable>
@@ -182,8 +187,8 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
   return (
     <Modal visible animationType="fade" onRequestClose={() => onClose(page)} statusBarTranslucent supportedOrientations={['portrait']}>
       <View style={local.viewer}>
-        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: start * width, y: 0 }}
-          onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}>
+        <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ width, height }} contentOffset={{ x: start * width, y: 0 }}
+          onMomentumScrollEnd={(e) => setPage(pageAt(e.nativeEvent.contentOffset.x, width, photos.length))}>
           {photos.map((p, i) => (
             <PhotoImage key={p.id} label={`${title}, photo ${i + 1} of ${photos.length}`} uri={imageUrl(p.url)} width={width} height={height} contain />
           ))}

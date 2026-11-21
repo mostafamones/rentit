@@ -8,6 +8,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { imageUrl, listingPreviews, type Listing, type RentalRequest } from './api'
+import { pageAt } from './media'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp, type RequestStatus } from './domain/rental'
 import { useReduceMotion, useReduceTransparency } from './a11y'
 import { placeMenu, type Rect } from './menuPlacement'
@@ -34,6 +35,8 @@ const ICONS = {
   back: { ios: 'chevron.left', android: 'arrow_back' },
   expand: { ios: 'arrow.up.left.and.arrow.down.right', android: 'open_in_full' },
   key: { ios: 'key.fill', android: 'key' },
+  van: { ios: 'bus.fill', android: 'airport_shuttle' },
+  pickup: { ios: 'truck.pickup.side.fill', android: 'local_shipping' },
 } as const
 export type IconName = keyof typeof ICONS
 
@@ -285,77 +288,102 @@ export function OwnerLine({ owner, size = 13 }: { owner: Listing['owner']; size?
 export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seats'>) =>
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
-/** A photo at an explicit size, with the car placeholder when there is no photo or it fails to load. */
+/** A photo at an explicit size, with the car placeholder when there is no photo or this exact URI failed to load. */
 export function Photo({ uri, width, height, label, contain }: { uri?: string; width: number; height: number; label?: string; contain?: boolean }) {
   const colors = useColors()
-  const [failed, setFailed] = useState(false)
+  // Keyed to the URI so a failure never sticks to a recycled view that now shows another photo.
+  const [failed, setFailed] = useState<string>()
+  const show = !!uri && failed !== uri
   return (
     <View style={{ width, height, backgroundColor: contain ? 'transparent' : colors.fill, alignItems: 'center', justifyContent: 'center' }}>
-      {uri && !failed
-        ? <Image accessibilityLabel={label} source={{ uri }} style={{ width, height }} resizeMode={contain ? 'contain' : 'cover'} onError={() => setFailed(true)} />
+      {show
+        ? <Image accessibilityLabel={label} source={{ uri }} style={{ width, height }} resizeMode={contain ? 'contain' : 'cover'} onError={() => setFailed(uri)} />
         : <Icon name="car" size={Math.min(48, height / 4)} color={colors.tertiary} />}
     </View>
   )
 }
 
 /**
- * A listing card. Full width by default with swipeable photos; `width` sizes it for a horizontal rail, where it shows the
- * cover photo only (a pager inside a rail would fight the rail's own swipe).
+ * The rect the iOS zoom transition grows from (source) or lands on (target): an empty, unflattened native view laid over
+ * the photo. Photos render beside it, never inside the transition's native wrapper, so they show even when that wrapper
+ * mounts no child or the transition is unavailable. Plain style object: it is the Slot child of Link.AppleZoom.
+ */
+export function ZoomFrame({ width, height }: { width: number; height: number }) {
+  return <View collapsable={false} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, width, height }} />
+}
+
+const TYPE_ICON: Record<Listing['vehicleType'], IconName> = { sedan: 'car', hatchback: 'car', suv: 'car', van: 'van', pickup: 'pickup' }
+
+/**
+ * A listing card. Full width by default with swipeable photos; `width` makes the compact rail card: a shorter cover photo
+ * with a type capsule over it and a title/price stack (a pager inside a rail would fight the rail's own swipe).
  */
 export function ListingCard({ listing, width: cardWidth }: { listing: Listing; width?: number }) {
   const colors = useColors()
   const reduceMotion = useReduceMotion()
   // shortcut: full-width cards assume the screens' 16pt gutters; measure with onLayout if cards ever sit in columns.
   const window = useWindowDimensions().width
+  const compact = !!cardWidth
   const width = cardWidth ?? window - 32
-  const height = Math.round(width * 10 / 16)
+  const height = Math.round(width * (compact ? 0.6 : 0.625))
   const [page, setPage] = useState(0)
   const count = listing.photos.length
-  const pager = !cardWidth && count > 1
-  const title = `${listing.make} ${listing.model} ${listing.year}`
-  // Every direct child of an expo-router Slot (Link asChild, Link.AppleZoom) gets a single plain style object: Radix spreads
-  // the child's style, so a Pressable style callback is erased and a style array crashes development builds.
+  const pager = !compact && count > 1
+  const name = `${listing.make} ${listing.model}`
+  const title = `${name} ${listing.year}`
+  const typeLabel = VEHICLE_TYPE_LABEL[listing.vehicleType]
   const frame = { width, height }
-  const photos = pager ? (
-    <View style={frame}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
-        onScroll={(e) => { const i = Math.round(e.nativeEvent.contentOffset.x / width); if (i !== page) setPage(i) }}>
-        {listing.photos.map((p) => <Photo key={p.id} uri={imageUrl(p.url)} width={width} height={height} />)}
-      </ScrollView>
-    </View>
-  ) : (
-    <View style={frame}><Photo uri={imageUrl(listing.photos[0]?.url)} width={width} height={height} /></View>
-  )
   return (
     // Card surface and shadow live outside the Link so no Slot touches them.
     <View style={[styles.listing, { width, backgroundColor: colors.card, borderColor: colors.separator }]}>
       <Link href={{ pathname: '/listing/[id]', params: { id: String(listing.id), photo: String(page) } }} asChild>
         <Pressable style={styles.listingClip} onPress={() => listingPreviews.set(listing.id, listing)} accessibilityRole="button"
-          accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}${pager ? `, photo ${page + 1} of ${count}` : ''}`}>
+          accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${compact ? `${typeLabel}, ` : ''}${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}${pager ? `, photo ${page + 1} of ${count}` : ''}`}>
           {({ pressed }) => (
             <View style={pressed ? styles.pressed : undefined}>
-              <View style={frame}>
-                {/* iOS 18+ zooms the visible photo into the listing hero and back, with pull-down to close; elsewhere a normal push. */}
-                {reduceMotion ? photos : <Link.AppleZoom>{photos}</Link.AppleZoom>}
-                {listing.featured && !cardWidth && <GlassCapsule style={styles.overlayTag}><Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>Featured</Text></GlassCapsule>}
+              <View collapsable={false} style={[frame, { backgroundColor: colors.fill }]}>
+                {pager ? (
+                  <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16} style={frame}
+                    onScroll={(e) => { const i = pageAt(e.nativeEvent.contentOffset.x, width, count); if (i !== page) setPage(i) }}>
+                    {listing.photos.map((p) => <Photo key={p.id} uri={imageUrl(p.url)} width={width} height={height} />)}
+                  </ScrollView>
+                ) : <Photo uri={imageUrl(listing.photos[0]?.url)} width={width} height={height} />}
+                {/* iOS 18+ zooms from this rect into the listing hero and back, with pull-down to close; elsewhere a normal push. */}
+                {!reduceMotion && <Link.AppleZoom><ZoomFrame width={width} height={height} /></Link.AppleZoom>}
+                {compact && (
+                  <GlassCapsule dark style={[styles.overlayTag, styles.typeTag]}>
+                    <Icon name={TYPE_ICON[listing.vehicleType]} size={12} color="#FFFFFF" />
+                    <Text numberOfLines={1} style={[type.caption, styles.overlayText, { color: '#FFFFFF' }]}>{typeLabel}</Text>
+                  </GlassCapsule>
+                )}
+                {listing.featured && !compact && <GlassCapsule style={styles.overlayTag}><Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>Featured</Text></GlassCapsule>}
                 {pager && (
                   <GlassCapsule style={[styles.overlayTag, styles.overlayRight]}>
                     <Text style={[type.caption, styles.overlayText, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>{page + 1}/{count}</Text>
                   </GlassCapsule>
                 )}
               </View>
-              <View style={styles.listingBody}>
-                <View style={styles.row}>
-                  <Text numberOfLines={1} style={[type.headline, styles.flex, { color: colors.ink }]}>{title}</Text>
-                  <Text style={[type.price, { color: colors.ink }]}>{formatEgp(listing.dailyRateEgp)}<Text style={[type.footnote, { color: colors.secondary, fontWeight: '400' }]}> /day</Text></Text>
+              {compact ? (
+                <View style={styles.compactBody}>
+                  <Text numberOfLines={2} style={[type.headline, { color: colors.ink }]}>{name} <Text style={{ color: colors.secondary, fontWeight: '400' }}>{listing.year}</Text></Text>
+                  <Text numberOfLines={1} style={[type.subheadline, { color: colors.ink, fontWeight: '600' }]}>
+                    {formatEgp(listing.dailyRateEgp)}<Text style={{ color: colors.secondary, fontWeight: '400' }}> /day · {listing.district}</Text>
+                  </Text>
                 </View>
-                <View style={styles.meta}>
-                  <Icon name="pin" size={13} />
-                  <Text numberOfLines={1} style={[type.subheadline, { color: colors.ink, flexShrink: 1 }]}>{listing.district}</Text>
+              ) : (
+                <View style={styles.listingBody}>
+                  <View style={styles.row}>
+                    <Text numberOfLines={1} style={[type.headline, styles.flex, { color: colors.ink }]}>{title}</Text>
+                    <Text style={[type.price, { color: colors.ink }]}>{formatEgp(listing.dailyRateEgp)}<Text style={[type.footnote, { color: colors.secondary, fontWeight: '400' }]}> /day</Text></Text>
+                  </View>
+                  <View style={styles.meta}>
+                    <Icon name="pin" size={13} />
+                    <Text numberOfLines={1} style={[type.subheadline, { color: colors.ink, flexShrink: 1 }]}>{listing.district}</Text>
+                  </View>
+                  <Text style={[type.subheadline, { color: colors.secondary }]}>{specLine(listing)}</Text>
+                  <OwnerLine owner={listing.owner} />
                 </View>
-                {!cardWidth && <Text style={[type.subheadline, { color: colors.secondary }]}>{specLine(listing)}</Text>}
-                {!cardWidth && <OwnerLine owner={listing.owner} />}
-              </View>
+              )}
             </View>
           )}
         </Pressable>
@@ -419,7 +447,9 @@ export const styles = StyleSheet.create({
   overlayTag: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 10, paddingVertical: 4 },
   overlayRight: { left: undefined, right: 10 },
   overlayText: { fontWeight: '600' },
+  typeTag: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '70%', paddingHorizontal: 9 },
   listingBody: { padding: 14, gap: 6 },
+  compactBody: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, gap: 3 },
   requestRow: { flexDirection: 'row', gap: 12, padding: 12, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center' },
   thumb: { width: 72, height: 72, borderRadius: 12, overflow: 'hidden' },
   screen: { padding: 16, gap: 14, paddingBottom: 40 },
@@ -435,7 +465,7 @@ export const tabStackOptions = (colors: ReturnType<typeof useColors>) => ({
   headerRight: () => <AccountButton />,
 })
 
-function AccountButton() {
+export function AccountButton() {
   const colors = useColors()
   return (
     <Link href="/account" asChild>

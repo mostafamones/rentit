@@ -1,9 +1,10 @@
-import { Stack, router } from 'expo-router'
+import { router } from 'expo-router'
 import { Platform, Pressable, RefreshControl, ScrollView, Text, View, useWindowDimensions } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { api, type Listing } from '../../../src/api'
 import { useSession } from '../../../src/session'
 import { type, useColors } from '../../../src/theme'
-import { Empty, Icon, ListingCard, SectionTitle, SyncStatus, styles } from '../../../src/ui'
+import { AccountButton, Empty, Icon, ListingCard, SectionTitle, SyncStatus, styles } from '../../../src/ui'
 import { usePoll } from '../../../src/usePoll'
 
 /** Browse: a welcome, a rail of featured cars, then every car. Searching and filtering live on Search. */
@@ -11,19 +12,24 @@ export default function Browse() {
   const colors = useColors()
   const { user } = useSession()
   const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
   const { data, error, updatedAt, refreshing, refresh } = usePoll(
     () => api<{ listings: Listing[] }>('/listings').then((r) => r.listings), 'browse')
   const featured = data?.filter((l) => l.featured) ?? []
   // Narrower than the screen so the next card peeks in and the rail reads as scrollable.
-  const railCard = Math.round(Math.min(width * 0.78, 340))
+  const railCard = Math.round(Math.min(width * 0.62, 280))
   const first = user?.name.split(' ')[0]
 
   return (
     <View style={styles.flex}>
-      <Stack.Screen options={{ title: '' }} />
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.screen, { paddingBottom: 96 }]}
+      {/* No native header: iOS insets the scroll view for the status bar and tab bar itself; Android pads by the inset. */}
+      <ScrollView contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[styles.screen, { paddingBottom: 96, paddingTop: Platform.OS === 'ios' ? 8 : insets.top + 8 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-        <Text accessibilityRole="header" style={[type.largeTitle, { color: colors.ink }]}>{first ? `Welcome back, ${first}` : 'Welcome'}</Text>
+        <View style={styles.row}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[type.largeTitle, styles.flex, { color: colors.ink }]}>{first ? `Welcome back, ${first}` : 'Welcome'}</Text>
+          <AccountButton />
+        </View>
         {featured.length > 0 && (
           <>
             <SectionTitle>Featured</SectionTitle>
