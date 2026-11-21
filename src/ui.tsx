@@ -1,5 +1,5 @@
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect'
-import { Link } from 'expo-router'
+import { Link, router } from 'expo-router'
 import { SymbolView } from 'expo-symbols'
 import { useEffect, useRef, useState, type ComponentRef, type ReactNode } from 'react'
 import {
@@ -283,28 +283,45 @@ export function OwnerLine({ owner, size = 13 }: { owner: Listing['owner']; size?
 export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seats'>) =>
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
-export function ListingCard({ listing }: { listing: Listing }) {
+/** A photo at an explicit size, with the car placeholder when there is no photo or it fails to load. */
+export function Photo({ uri, width, height, label, contain }: { uri?: string; width: number; height: number; label?: string; contain?: boolean }) {
   const colors = useColors()
-  const reduceMotion = useReduceMotion()
-  const photo = imageUrl(listing.photos[0]?.url)
-  const title = `${listing.make} ${listing.model} ${listing.year}`
-  const image = (
-    <View style={StyleSheet.flatten([styles.photo, { backgroundColor: colors.fill }])}>
-      {photo ? <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : <Icon name="car" size={40} color={colors.tertiary} />}
+  const [failed, setFailed] = useState(false)
+  return (
+    <View style={{ width, height, backgroundColor: contain ? 'transparent' : colors.fill, alignItems: 'center', justifyContent: 'center' }}>
+      {uri && !failed
+        ? <Image accessibilityLabel={label} source={{ uri }} style={{ width, height }} resizeMode={contain ? 'contain' : 'cover'} onError={() => setFailed(true)} />
+        : <Icon name="car" size={Math.min(48, height / 4)} color={colors.tertiary} />}
     </View>
   )
+}
+
+export function ListingCard({ listing }: { listing: Listing }) {
+  const colors = useColors()
+  // shortcut: card width is the window minus the screens' 16pt gutters; measure with onLayout if cards ever sit in columns.
+  const width = useWindowDimensions().width - 32
+  const height = Math.round(width * 10 / 16)
+  const [page, setPage] = useState(0)
+  const count = listing.photos.length
+  const title = `${listing.make} ${listing.model} ${listing.year}`
+  // Not a Link asChild: its Slot spreads the child's style, which erases a Pressable style callback.
+  const open = () => router.push({ pathname: '/listing/[id]', params: { id: String(listing.id), photo: String(page) } })
   return (
-    <Link href={`/listing/${listing.id}`} asChild>
-      <Pressable accessibilityRole="button"
-        accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}`}
-        style={({ pressed }) => [styles.listing, { backgroundColor: colors.card, borderColor: colors.separator, opacity: pressed ? 0.85 : 1 }]}>
-        <View>
-          {/* iOS 18+ zooms the photo into the listing's hero; elsewhere this is a normal push. */}
-          {reduceMotion ? image : <Link.AppleZoom>{image}</Link.AppleZoom>}
+    <Pressable accessibilityRole="button" onPress={open}
+      accessibilityLabel={`${listing.featured ? 'Featured, ' : ''}${title}, ${formatEgp(listing.dailyRateEgp)} per day, pickup in ${listing.district}${count > 1 ? `, photo ${page + 1} of ${count}` : ''}`}
+      style={({ pressed }) => [styles.listing, { backgroundColor: colors.card, borderColor: colors.separator, opacity: pressed ? 0.85 : 1 }]}>
+      <View style={styles.listingClip}>
+        <View style={{ width, height }}>
+          {count > 1 ? (
+            <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} scrollEventThrottle={16}
+              onScroll={(e) => { const i = Math.round(e.nativeEvent.contentOffset.x / width); if (i !== page) setPage(i) }}>
+              {listing.photos.map((p) => <Photo key={p.id} uri={imageUrl(p.url)} width={width} height={height} />)}
+            </ScrollView>
+          ) : <Photo uri={imageUrl(listing.photos[0]?.url)} width={width} height={height} />}
           {listing.featured && <GlassCapsule style={styles.overlayTag}><Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>Featured</Text></GlassCapsule>}
-          {listing.photos.length > 1 && (
+          {count > 1 && (
             <GlassCapsule style={[styles.overlayTag, styles.overlayRight]}>
-              <Text style={[type.caption, styles.overlayText, { color: colors.ink }]}>{listing.photos.length} photos</Text>
+              <Text style={[type.caption, styles.overlayText, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>{page + 1}/{count}</Text>
             </GlassCapsule>
           )}
         </View>
@@ -320,8 +337,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <Text style={[type.subheadline, { color: colors.secondary }]}>{specLine(listing)}</Text>
           <OwnerLine owner={listing.owner} />
         </View>
-      </Pressable>
-    </Link>
+      </View>
+    </Pressable>
   )
 }
 
@@ -333,7 +350,7 @@ export function RequestRow({ request, onPress }: { request: RentalRequest; onPre
     <Pressable accessibilityRole="button" onPress={onPress}
       style={({ pressed }) => [styles.requestRow, { backgroundColor: colors.card, borderColor: colors.separator, opacity: pressed ? 0.85 : 1 }]}>
       <View style={[styles.thumb, { backgroundColor: colors.fill }]}>
-        {photo && <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} />}
+        <Photo uri={photo} width={72} height={72} />
       </View>
       <View style={[styles.flex, { gap: 3 }]}>
         <Text numberOfLines={1} style={[type.headline, { color: colors.ink }]}>{request.listing.title}</Text>
@@ -373,8 +390,9 @@ export const styles = StyleSheet.create({
   loading: { marginVertical: 24 },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 40, paddingHorizontal: 24 },
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
-  listing: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
-  photo: { aspectRatio: 16 / 10, alignItems: 'center', justifyContent: 'center' },
+  // Outer layer carries the shadow (iOS drops shadows on clipped views); the inner layer clips to the corners.
+  listing: { borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, elevation: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  listingClip: { borderRadius: 18, overflow: 'hidden' },
   overlayTag: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 10, paddingVertical: 4 },
   overlayRight: { left: undefined, right: 10 },
   overlayText: { fontWeight: '600' },
@@ -387,9 +405,10 @@ export const styles = StyleSheet.create({
 
 /** Header options shared by the Browse and Trips stacks: large title, Account at the top right. */
 export const tabStackOptions = (colors: ReturnType<typeof useColors>) => ({
-  headerLargeTitle: true, headerLargeTitleShadowVisible: false, headerShadowVisible: false, headerTintColor: colors.ink,
-  headerStyle: { backgroundColor: colors.background }, headerLargeStyle: { backgroundColor: colors.background },
-  headerTitleStyle: { color: colors.ink }, headerLargeTitleStyle: { color: colors.ink }, contentStyle: { backgroundColor: colors.background },
+  // Inline title: the large title stayed blank at rest and only appeared once the list scrolled.
+  headerLargeTitle: false, headerShadowVisible: false, headerTintColor: colors.ink,
+  headerStyle: { backgroundColor: colors.background },
+  headerTitleStyle: { color: colors.ink }, contentStyle: { backgroundColor: colors.background },
   headerRight: () => <AccountButton />,
 })
 

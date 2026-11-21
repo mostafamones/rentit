@@ -1,5 +1,6 @@
 import Constants from 'expo-constants'
 import * as SecureStore from 'expo-secure-store'
+import { withoutSampleSuffix } from './sampleNames'
 import type { AccountType, Fuel, ListingStatus, Quote, Range, RequestStatus, Transmission, VehicleType, District } from './domain/rental'
 
 // Dev builds reach the API on the Metro host unless EXPO_PUBLIC_API_URL says otherwise.
@@ -66,5 +67,6 @@ export async function api<T>(path: string, init?: { method?: string; body?: obje
   }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status}).`, data)
-  return data as T
+  return withoutSampleSuffix(data) as T
 }
+

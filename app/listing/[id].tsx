@@ -1,51 +1,49 @@
-import { Link, router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { api, imageUrl, type ListingDetail } from '../../src/api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
 import { type, useColors } from '../../src/theme'
-import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, SyncStatus, styles } from '../../src/ui'
+import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, Photo as PhotoImage, SyncStatus, styles } from '../../src/ui'
 import { usePoll } from '../../src/usePoll'
 
 type Photo = ListingDetail['photos'][number]
 
 export default function ListingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, photo } = useLocalSearchParams<{ id: string; photo?: string }>()
   const colors = useColors()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
   const { user } = useSession()
-  const [page, setPage] = useState(0)
+  // Opens on the photo the card was showing.
+  const [page, setPage] = useState(() => Number(photo) || 0)
   const [viewer, setViewer] = useState(false)
   const { data: l, error, updatedAt } = usePoll(() => api<{ listing: ListingDetail }>(`/listings/${id}`).then((r) => r.listing), `${id}:${user?.id}`)
   const back = () => (router.canGoBack() ? router.back() : router.replace('/browse'))
   const heroHeight = Math.round(width * 1.05)
 
-  // The zoom target exists from the first frame so the iOS zoom transition has somewhere to land.
   const hero = (photos: Photo[], title: string, district?: string) => (
-    <Link.AppleZoomTarget>
-      <View style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
-        <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
-        {district !== undefined && (
-          <GlassCapsule style={local.titleBand}>
-            <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
-            <View style={styles.row}>
-              <View style={styles.meta}>
-                <Icon name="pin" size={14} color={colors.ink} />
-                <Text style={[type.callout, { color: colors.ink }]}>{district}</Text>
-              </View>
-              {photos.length > 1 && (
-                <View style={local.dots} accessible accessibilityLabel={`Photo ${page + 1} of ${photos.length}`}>
-                  {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === page ? colors.ink : colors.tertiary }]} />)}
-                </View>
-              )}
+    <View style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
+      <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
+      {district !== undefined && (
+        <GlassCapsule style={local.titleBand}>
+          <Text accessibilityRole="header" numberOfLines={2} style={[type.title, { color: colors.ink }]}>{title}</Text>
+          <View style={styles.row}>
+            <View style={styles.meta}>
+              <Icon name="pin" size={14} color={colors.ink} />
+              <Text style={[type.callout, { color: colors.ink }]}>{district}</Text>
             </View>
-          </GlassCapsule>
-        )}
+            {photos.length > 1 && (
+              <View style={local.dots} accessible accessibilityLabel={`Photo ${page + 1} of ${photos.length}`}>
+                {photos.map((p, i) => <View key={p.id} style={[local.dot, { backgroundColor: i === page ? colors.ink : colors.tertiary }]} />)}
+              </View>
+            )}
+          </View>
+        </GlassCapsule>
+      )}
       </View>
-    </Link.AppleZoomTarget>
   )
   const chrome = (count: number) => (
     <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">
@@ -161,7 +159,7 @@ function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
       {photos.map((p, i) => (
         <Pressable key={p.id} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
           accessibilityHint="Opens full screen" onPress={onOpen}>
-          <Image source={{ uri: imageUrl(p.url) }} style={{ width, height }} resizeMode="cover" />
+          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} />
         </Pressable>
       ))}
     </ScrollView>
@@ -178,8 +176,7 @@ function PhotoViewer({ photos, title, start, onClose }: { photos: Photo[]; title
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} contentOffset={{ x: start * width, y: 0 }}
           onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}>
           {photos.map((p, i) => (
-            <Image key={p.id} accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`} source={{ uri: imageUrl(p.url) }}
-              style={{ width, height }} resizeMode="contain" />
+            <PhotoImage key={p.id} label={`${title}, photo ${i + 1} of ${photos.length}`} uri={imageUrl(p.url)} width={width} height={height} contain />
           ))}
         </ScrollView>
         <View style={[local.chrome, { top: insets.top + 6 }]} pointerEvents="box-none">

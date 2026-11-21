@@ -2,10 +2,12 @@ import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { SessionProvider } from '../src/session'
+import { useReduceMotion } from '../src/a11y'
 import { useColors } from '../src/theme'
 
 export default function RootLayout() {
   const colors = useColors()
+  const reduceMotion = useReduceMotion()
   return (
     <SafeAreaProvider>
       <SessionProvider>
@@ -16,7 +18,8 @@ export default function RootLayout() {
         }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="listing/[id]" options={{ headerShown: false }} />
+          {/* A plain themed push (the photo zoom left a detached, letterboxed route mid-transition); a fade with Reduce Motion. */}
+          <Stack.Screen name="listing/[id]" options={{ headerShown: false, animation: reduceMotion ? 'fade' : 'default' }} />
           <Stack.Screen name="account" options={{ title: 'Account' }} />
           <Stack.Screen name="garage" options={{ title: 'My cars' }} />
           <Stack.Screen name="search" options={{ title: 'Search' }} />
