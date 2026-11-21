@@ -289,11 +289,36 @@ export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seat
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
 /** A photo at an explicit size, with the car placeholder when there is no photo or this exact URI failed to load. */
-export function Photo({ uri, width, height, label, contain }: { uri?: string; width: number; height: number; label?: string; contain?: boolean }) {
+/**
+ * `poster` keeps the whole photo sharp at its own aspect, bottom-aligned and centred, and fills the rest of the frame
+ * with a blurred copy of the same (cached) image, iOS poster style; 'solid' skips the blur (Reduce Transparency, far pages).
+ */
+export function Photo({ uri, width, height, label, contain, poster }: {
+  uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: 'blur' | 'solid'
+}) {
   const colors = useColors()
-  // Keyed to the URI so a failure never sticks to a recycled view that now shows another photo.
+  const reduceTransparency = useReduceTransparency()
+  // Keyed to the URI so a failure or size never sticks to a recycled view that now shows another photo.
   const [failed, setFailed] = useState<string>()
+  const [size, setSize] = useState<{ uri: string; aspect: number }>()
   const show = !!uri && failed !== uri
+  if (poster && show) {
+    const aspect = size?.uri === uri ? size.aspect : 0
+    // Until the load event gives the real aspect the sharp copy is an invisible full-frame contain, so nothing jumps.
+    const w = aspect ? Math.min(width, height * aspect) : width
+    const h = aspect ? Math.min(height, width / aspect) : height
+    return (
+      <View style={{ width, height, backgroundColor: colors.fill, overflow: 'hidden' }}>
+        {poster === 'blur' && !reduceTransparency && (
+          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" resizeMethod="resize" blurRadius={40}
+            accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+        )}
+        <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" onError={() => setFailed(uri)}
+          onLoad={(e) => { const s = e.nativeEvent.source; if (s?.width && s.height) setSize({ uri, aspect: s.width / s.height }) }}
+          style={{ position: 'absolute', bottom: 0, left: (width - w) / 2, width: w, height: h, opacity: aspect ? 1 : 0 }} />
+      </View>
+    )
+  }
   return (
     <View style={{ width, height, backgroundColor: contain ? 'transparent' : colors.fill, alignItems: 'center', justifyContent: 'center' }}>
       {show

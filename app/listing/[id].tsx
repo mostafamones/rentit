@@ -173,7 +173,8 @@ function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
       {photos.map((p, i) => (
         <Pressable key={p.id} style={{ width, height }} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
           accessibilityHint="Opens full screen" onPress={onOpen}>
-          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} />
+          {/* Blur only near the current page so a long gallery doesn't decode a blurred copy of every photo. */}
+          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} poster={Math.abs(i - page) <= 1 ? 'blur' : 'solid'} />
         </Pressable>
       ))}
     </ScrollView>
