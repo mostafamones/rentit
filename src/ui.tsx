@@ -288,10 +288,9 @@ export function OwnerLine({ owner, size = 13 }: { owner: Listing['owner']; size?
 export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seats'>) =>
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
-/** A photo at an explicit size, with the car placeholder when there is no photo or this exact URI failed to load. */
 /**
- * `poster` keeps the whole photo sharp at its own aspect, bottom-aligned and centred, and fills the rest of the frame
- * with a blurred copy of the same (cached) image, iOS poster style; 'solid' skips the blur (Reduce Transparency, far pages).
+ * Shows a placeholder for a missing or failed photo. Poster mode keeps the whole photo sharp and uses a blurred
+ * copy to fill the frame. Solid poster mode skips the blur.
  */
 export function Photo({ uri, width, height, label, contain, poster }: {
   uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: 'blur' | 'solid'
@@ -304,18 +303,21 @@ export function Photo({ uri, width, height, label, contain, poster }: {
   const show = !!uri && failed !== uri
   if (poster && show) {
     const aspect = size?.uri === uri ? size.aspect : 0
-    // Until the load event gives the real aspect the sharp copy is an invisible full-frame contain, so nothing jumps.
+    // Contain the sharp photo even if the native loader provides no dimensions for bottom alignment.
     const w = aspect ? Math.min(width, height * aspect) : width
     const h = aspect ? Math.min(height, width / aspect) : height
     return (
       <View style={{ width, height, backgroundColor: colors.fill, overflow: 'hidden' }}>
         {poster === 'blur' && !reduceTransparency && (
-          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" resizeMethod="resize" blurRadius={40}
+          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" resizeMethod="resize" blurRadius={40} pointerEvents="none"
             accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
         )}
         <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" onError={() => setFailed(uri)}
-          onLoad={(e) => { const s = e.nativeEvent.source; if (s?.width && s.height) setSize({ uri, aspect: s.width / s.height }) }}
-          style={{ position: 'absolute', bottom: 0, left: (width - w) / 2, width: w, height: h, opacity: aspect ? 1 : 0 }} />
+          onLoad={(e) => {
+            const source = e.nativeEvent.source
+            if (source?.width > 0 && source.height > 0) setSize({ uri, aspect: source.width / source.height })
+          }}
+          style={{ position: 'absolute', bottom: 0, left: (width - w) / 2, width: w, height: h }} />
       </View>
     )
   }
