@@ -92,7 +92,7 @@ export default function CarEditor() {
                 tone={{ active: 'green', paused: 'gray', hidden: 'red' }[listing.status] as 'green'} />
             </View>
             {listing.status === 'hidden'
-              ? <Text style={[type.callout, { color: colors.secondary }]}>Rentit hid this car after a report. Contact the pilot team to restore it.</Text>
+              ? <Text style={[type.callout, { color: colors.secondary }]}>Hidden after a report. Contact Rentit to restore it.</Text>
               : listing.status === 'active'
                 ? <Button kind="secondary" title="Pause listing" busy={busy === 'status'} onPress={() => setStatus('paused')} />
                 : <Button title="Publish listing" busy={busy === 'status'} disabled={!listing.photos.length} onPress={() => setStatus('active')} />}
@@ -141,21 +141,18 @@ export default function CarEditor() {
           <MenuPill label="Fuel" value={form.fuel} options={opts(FUELS)} onSelect={set('fuel')} />
           <MenuPill label="Pickup area" value={form.district} options={opts(DISTRICTS, (v) => `Pickup: ${v}`)} onSelect={set('district')} />
         </View>
-        <Field label="Daily price (EGP)" value={form.dailyRateEgp} onChangeText={set('dailyRateEgp')} keyboardType="number-pad" placeholder="2000"
-          hint="Whole pounds per day. Changes apply to new requests; existing requests keep their quote." />
+        <Field label="Daily price (EGP)" value={form.dailyRateEgp} onChangeText={set('dailyRateEgp')} keyboardType="number-pad" placeholder="2000" />
         <Field label="Rental terms" value={form.terms} onChangeText={set('terms')} multiline maxLength={1000}
           placeholder="Deposit, documents needed, km per day, fuel policy…" />
         {error && <Banner tone="error" text={error} />}
         {saved && <Banner tone="success" text="Saved." />}
         <Button title={isNew ? 'Create listing' : 'Save changes'} busy={busy === 'save'} onPress={save} />
-        {isNew && <Text style={[type.footnote, { color: colors.secondary, textAlign: 'center' }]}>Next you'll add photos, then publish.</Text>}
 
         {listing && (
           <>
             <SectionTitle trailing={<Text accessibilityRole="button" onPress={() => setBlocking(true)} style={[type.callout, { color: colors.accent, fontWeight: '600' }]}>Block dates</Text>}>
               Unavailable dates
             </SectionTitle>
-            <Text style={[type.footnote, { color: colors.secondary }]}>Block days you need the car. Accepted rentals block their dates automatically.</Text>
             {listing.blocks.map((b) => (
               <View key={b.id} style={[styles.row, { paddingVertical: 6 }]}>
                 <Text style={[type.callout, { color: colors.ink }]}>{formatDate(b.startDate)} – {formatDate(b.endDate)}</Text>

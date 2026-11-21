@@ -11,12 +11,15 @@ export default function RootLayout() {
       <SessionProvider>
         <StatusBar style="auto" />
         <Stack screenOptions={{
-          headerTintColor: colors.accent, headerTitleStyle: { color: colors.ink }, headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.ink, headerTitleStyle: { color: colors.ink }, headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false, contentStyle: { backgroundColor: colors.background }, headerBackButtonDisplayMode: 'minimal',
         }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="listing/[id]" options={{ title: '' }} />
+          <Stack.Screen name="listing/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="account" options={{ title: 'Account' }} />
+          <Stack.Screen name="garage" options={{ title: 'My cars' }} />
+          <Stack.Screen name="search" options={{ title: 'Search' }} />
           <Stack.Screen name="request/[id]" options={{ title: 'Request' }} />
           <Stack.Screen name="car/[id]" options={{ title: 'Your car' }} />
           <Stack.Screen name="book/[id]" options={{ title: 'Choose dates', presentation: 'modal' }} />

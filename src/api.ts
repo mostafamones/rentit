@@ -16,7 +16,7 @@ export type ListingFields = {
   seats: number; district: District; dailyRateEgp: number; terms: string
 }
 export type Listing = ListingFields & {
-  id: number; status: ListingStatus; isSample: boolean; photos: { id: number; url: string }[]; owner: PublicUser; isMine: boolean
+  id: number; status: ListingStatus; featured: boolean; photos: { id: number; url: string }[]; owner: PublicUser; isMine: boolean
 }
 export type ListingDetail = Listing & { booked: Range[]; blocks: (Range & { id: number })[] }
 

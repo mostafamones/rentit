@@ -64,8 +64,8 @@ export default function Book() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
       <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
         <Text style={[type.headline, { color: colors.ink }]}>{listing.make} {listing.model} · {formatEgp(listing.dailyRateEgp)} per day</Text>
-        <Text style={[type.subheadline, { color: colors.secondary }]}>
-          {!start ? 'Tap your pickup date.' : !end ? 'Now tap your return date.' : 'Tap another date to start over.'} Crossed-out days are already booked.
+        <Text accessibilityLiveRegion="polite" style={[type.subheadline, { color: colors.secondary }]}>
+          {!start ? 'Pickup date' : !end ? 'Return date' : 'Dates selected'}
         </Text>
         <Card>
           <View style={styles.row}>
@@ -89,18 +89,13 @@ export default function Book() {
               <Text style={[type.callout, { color: colors.secondary }]}>{formatEgp(q.dailyRateEgp)} × {q.days} {q.days === 1 ? 'day' : 'days'}</Text>
               <Text style={[type.price, { color: colors.ink }]}>{formatEgp(q.totalEgp)}</Text>
             </View>
-            <Text style={[type.footnote, { color: colors.secondary }]}>
-              This total is locked into your request. Days = return date minus pickup date. Pay the owner at pickup; deposits follow their terms.
-            </Text>
+            <Text style={[type.footnote, { color: colors.secondary }]}>Locked in when sent. Paid to the owner at pickup.</Text>
           </Card>
         )}
         <Field label="Note to the owner (optional)" value={note} onChangeText={setNote} multiline maxLength={500}
-          placeholder="Pickup time, where you're driving, questions…" />
+           />
         {error && <Banner tone="error" text={error} />}
         <Button title={q ? `Send request · ${formatEgp(q.totalEgp)}` : 'Choose dates'} disabled={!q} busy={busy} onPress={send} />
-        <Text style={[type.footnote, { color: colors.secondary, textAlign: 'center' }]}>
-          Sending a request doesn't hold the car. The dates are yours once the owner accepts.
-        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   )

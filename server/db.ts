@@ -78,6 +78,10 @@ export function openDb(file: string): DB {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `)
+  // Added after v1: older databases get the column in place.
+  if (!(db.prepare("SELECT 1 FROM pragma_table_info('listings') WHERE name = 'is_featured'").get())) {
+    db.exec('ALTER TABLE listings ADD COLUMN is_featured INTEGER NOT NULL DEFAULT 0')
+  }
   return db
 }
 

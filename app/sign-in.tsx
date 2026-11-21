@@ -33,14 +33,11 @@ export default function SignIn() {
       <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
         <MenuPill label="Account" value={mode} onSelect={(m) => { setMode(m); setError(undefined) }}
           options={[{ value: 'signin', title: 'I have an account' }, { value: 'register', title: 'Create an account' }]} />
-        <Text style={[type.subheadline, { color: colors.secondary }]}>
-          One account can rent cars and list its own. Choose business if you run a rental company.
-        </Text>
         {mode === 'register' && (
           <>
             <Field label="Full name" value={form.name} onChangeText={set('name')} autoComplete="name" textContentType="name" />
             <Field label="Mobile number" value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" autoComplete="tel"
-              placeholder="+20 10 1234 5678" hint="Shared only with the other side of an accepted rental." />
+              placeholder="+20 10 1234 5678" />
             <View style={{ gap: 6 }}>
               <Text style={[type.footnote, { color: colors.secondary, fontWeight: '600' }]}>Account type</Text>
               <MenuPill label="Account type" value={form.accountType} onSelect={set('accountType')}

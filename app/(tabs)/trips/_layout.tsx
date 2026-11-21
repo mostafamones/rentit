@@ -1,14 +1,10 @@
 import { Stack } from 'expo-router'
 import { useColors } from '../../../src/theme'
+import { tabStackOptions } from '../../../src/ui'
 
 export default function Layout() {
-  const colors = useColors()
   return (
-    <Stack screenOptions={{
-      headerLargeTitle: true, headerLargeTitleShadowVisible: false, headerShadowVisible: false, headerTintColor: colors.accent,
-      headerStyle: { backgroundColor: colors.background }, headerLargeStyle: { backgroundColor: colors.background },
-      headerTitleStyle: { color: colors.ink }, headerLargeTitleStyle: { color: colors.ink }, contentStyle: { backgroundColor: colors.background },
-    }}>
+    <Stack screenOptions={tabStackOptions(useColors())}>
       <Stack.Screen name="index" options={{ title: 'Trips' }} />
     </Stack>
   )

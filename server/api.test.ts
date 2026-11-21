@@ -167,3 +167,37 @@ test('auth: wrong password, duplicate email, logout', async () => {
   await call('POST', '/auth/logout', data.token)
   assert.equal((await call('GET', '/me', data.token)).status, 401)
 })
+
+test('seed upgrade backfills v1 sample listings only, and search matches make, model and district', async () => {
+  const { seedIfEmpty, upgradeSeed } = await import('./seed.ts')
+  const seedDir = mkdtempSync(join(tmpdir(), 'rentit-seed-'))
+  const uploads = join(seedDir, 'uploads')
+  ;(await import('node:fs')).mkdirSync(uploads)
+  const sdb = openDb(join(seedDir, 'seed.db'))
+  seedIfEmpty(sdb, uploads)
+  const photos = (model: string) => (sdb.prepare(`SELECT p.file FROM photos p JOIN listings l ON l.id = p.listing_id WHERE l.model = ? ORDER BY p.id`)
+    .all(model) as { file: string }[]).map((p) => p.file)
+  // Rewind to what v1 seeded; then the Sportage owner deletes its only photo.
+  sdb.exec(`UPDATE users SET name = name || ' (sample)' WHERE email = 'mona@sample.rentit';
+    UPDATE users SET business_name = business_name || ' (sample)' WHERE business_name IS NOT NULL;
+    UPDATE listings SET is_featured = 0;
+    DELETE FROM photos WHERE file IN ('sample-elantra-rear.jpg', 'sample-elantra-interior.jpg', 'sample-sportage-rear.jpg', 'sample-sportage.jpg')`)
+  upgradeSeed(sdb, uploads)
+  upgradeSeed(sdb, uploads) // idempotent
+  assert.deepEqual(photos('Elantra'), ['sample-elantra.jpg', 'sample-elantra-rear.jpg', 'sample-elantra-interior.jpg'])
+  assert.deepEqual(photos('Sportage'), [])
+  const names = sdb.prepare(`SELECT name, business_name AS b FROM users`).all() as { name: string; b: string | null }[]
+  assert.ok(names.every((u) => !u.name.includes('(sample)') && !u.b?.includes('(sample)')))
+
+  const handler = createHandler({ db: sdb, uploadsDir: uploads, today: () => TODAY })
+  const srv = createServer(handler).listen(0)
+  await new Promise((r) => srv.once('listening', r))
+  const get = async (q: string) => ((await (await fetch(`http://127.0.0.1:${(srv.address() as { port: number }).port}/listings?q=${encodeURIComponent(q)}`)).json()) as any)
+    .listings.map((l: any) => `${l.make} ${l.model}`)
+  assert.deepEqual(await get('corolla'), ['Toyota Corolla'])
+  assert.deepEqual(await get('kia zamalek'), ['Kia Picanto'])
+  assert.deepEqual(await get('100%_'), [])
+  const all = (await get('')) as string[]
+  assert.equal(all[0], 'Toyota Corolla') // featured first (Elantra is featured too; Sportage lost its v1 photos)
+  srv.close()
+})

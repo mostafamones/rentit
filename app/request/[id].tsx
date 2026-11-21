@@ -56,10 +56,7 @@ export default function RequestScreen() {
       </Pressable>
 
       {r.statusReason && <Banner tone={r.status === 'accepted' ? 'success' : 'info'} text={r.statusReason} />}
-      {r.status === 'pending' && (
-        <Banner text={owner ? 'Pending requests do not hold the car. Accepting books these dates and declines overlapping requests.'
-          : 'Waiting for the owner. The car is not held until they accept.'} />
-      )}
+      {r.status === 'pending' && owner && <Banner text="Accepting books these dates and declines overlapping requests." />}
 
       <Card>
         <View style={styles.row}>
@@ -77,7 +74,7 @@ export default function RequestScreen() {
           <Text style={[type.callout, { color: colors.secondary }]}>{formatEgp(r.dailyRateEgp)} × {r.days} {r.days === 1 ? 'day' : 'days'}</Text>
           <Text style={[type.price, { color: colors.ink }]}>{formatEgp(r.totalEgp)}</Text>
         </View>
-        <Text style={[type.footnote, { color: colors.secondary }]}>Quoted when the request was sent; later price changes don't affect it. Paid to the owner at pickup.</Text>
+        <Text style={[type.footnote, { color: colors.secondary }]}>Paid to the owner at pickup.</Text>
       </Card>
 
       <Card>
@@ -87,17 +84,16 @@ export default function RequestScreen() {
         {r.contact ? (
           <View style={{ gap: 8 }}>
             <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`tel:${r.contact!.phone.replace(/\s/g, '')}`)} style={styles.meta}>
-              <Icon name="phone" size={14} color={colors.accent} />
-              <Text style={[type.callout, { color: colors.accent }]}>{r.contact.phone}</Text>
+              <Icon name="phone" size={14} color={colors.ink} />
+              <Text style={[type.callout, { color: colors.ink }]}>{r.contact.phone}</Text>
             </Pressable>
             <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`mailto:${r.contact!.email}`)} style={styles.meta}>
-              <Icon name="mail" size={14} color={colors.accent} />
-              <Text style={[type.callout, { color: colors.accent }]}>{r.contact.email}</Text>
+              <Icon name="mail" size={14} color={colors.ink} />
+              <Text style={[type.callout, { color: colors.ink }]}>{r.contact.email}</Text>
             </Pressable>
-            <Text style={[type.footnote, { color: colors.secondary }]}>Shared because this rental is accepted. Arrange the pickup time directly.</Text>
           </View>
         ) : (
-          <Text style={[type.footnote, { color: colors.secondary }]}>Contact details appear here after the owner accepts.</Text>
+          <Text style={[type.footnote, { color: colors.secondary }]}>Contact details after acceptance.</Text>
         )}
       </Card>
 

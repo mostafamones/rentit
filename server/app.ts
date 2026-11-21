@@ -95,7 +95,7 @@ function listingOut(db: DB, l: Row, viewer?: Row) {
   const owner = db.prepare('SELECT * FROM users WHERE id = ?').get(l.owner_id) as Row
   return {
     id: l.id, make: l.make, model: l.model, year: l.year, vehicleType: l.vehicle_type, transmission: l.transmission, fuel: l.fuel,
-    seats: l.seats, district: l.district, dailyRateEgp: l.daily_rate_egp, terms: l.terms, status: l.status, isSample: !!l.is_sample,
+    seats: l.seats, district: l.district, dailyRateEgp: l.daily_rate_egp, terms: l.terms, status: l.status, featured: !!l.is_featured,
     photos: photos.map((p) => ({ id: p.id, url: `/uploads/${p.file}` })),
     owner: publicUser(owner), isMine: viewer?.id === l.owner_id,
   }
@@ -206,9 +206,14 @@ const routes: [string, RegExp, Handler][] = [
     if (type) { where.push('vehicle_type = ?'); args.push(type) }
     const transmission = query.get('transmission')
     if (transmission) { where.push('transmission = ?'); args.push(transmission) }
+    // Every word must match make, model or district, so "kia new cairo" narrows rather than widens.
+    for (const word of (query.get('q') ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 6)) {
+      where.push(`lower(make || ' ' || model || ' ' || district) LIKE ? ESCAPE '\\'`)
+      args.push(`%${word.replace(/[\\%_]/g, '\\$&')}%`)
+    }
     const maxPrice = Number(query.get('maxPrice'))
     if (maxPrice > 0) { where.push('daily_rate_egp <= ?'); args.push(maxPrice) }
-    const rows = db.prepare(`SELECT * FROM listings WHERE ${where.join(' AND ')} ORDER BY is_sample, created_at DESC, id DESC LIMIT 200`)
+    const rows = db.prepare(`SELECT * FROM listings WHERE ${where.join(' AND ')} ORDER BY is_featured DESC, is_sample, created_at DESC, id DESC LIMIT 200`)
       .all(...args) as Row[]
     return { listings: rows.map((l) => listingOut(db, l, user)) }
   }],

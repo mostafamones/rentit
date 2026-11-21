@@ -31,11 +31,13 @@ npm run export:mobile  # iOS + Android bundle export
 
 ## Sample data
 
-On an empty database the API creates 8 **sample listings** (marked "Sample listing" in the app) owned by three demo
-accounts, all with password `rentit-sample`:
+On an empty database the API creates 8 sample listings (unlabelled in the app; Elantra, Sportage and Corolla are
+Featured and have several photos) owned by three demo accounts, all with password `rentit-sample`:
 `nile.fleet@sample.rentit` (business), `mona@sample.rentit`, `omar@sample.rentit`. To try the full flow, request a car
 from another account, then sign in as that car's owner to respond. Photos are Wikimedia Commons images, credited in
 `server/seed-photos/CREDITS.md`.
+A database seeded by v1 is upgraded on API start: "(sample)" is dropped from demo display names, and the featured cars
+get their extra photos only if their photos are still exactly as first seeded.
 Reset everything by stopping the API and deleting `./data`.
 
 ## Rules the app and API follow
@@ -68,7 +70,7 @@ npm run admin -- resolve <reportId>
 
 ## Layout
 
-- `app/` Expo Router routes: native tabs (`expo-router/native-tabs`) Browse · Trips · My cars · Account, native stacks
+- `app/` Expo Router routes: native tabs (`expo-router/native-tabs`) Browse · Trips plus the iOS search tab (Android: floating search button), Account and My cars as stack screens from the header, native stacks
   for car detail, booking (modal), request detail, car editor, sign-in.
 - `src/domain/rental.ts` date, quote and overlap rules shared by app and server.
 - `src/ui.tsx` components incl. the filter `MenuPill` (rounded selector, current choice + chevron, anchored menu with tick).
