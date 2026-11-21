@@ -8,7 +8,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { imageUrl, listingPreviews, type Listing, type RentalRequest } from './api'
-import { pageAt } from './media'
+import { fitRect, pageAt } from './media'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp, type RequestStatus } from './domain/rental'
 import { useReduceMotion, useReduceTransparency } from './a11y'
 import { placeMenu, type Rect } from './menuPlacement'
@@ -288,47 +288,70 @@ export function OwnerLine({ owner, size = 13 }: { owner: Listing['owner']; size?
 export const specLine = (l: Pick<Listing, 'transmission' | 'vehicleType' | 'seats'>) =>
   `${TRANSMISSION_LABEL[l.transmission]} · ${VEHICLE_TYPE_LABEL[l.vehicleType]} · ${l.seats} seats`
 
+/** Each photo's natural aspect once any view has loaded it, so the listing hero has its size on the first frame. */
+export const photoAspects = new Map<string, number>()
+
+// Cumulative opacity .15/.35/.55/.75/.9 from the bottom of the vignette up, so the blur fades in without a visible edge.
+const VIGNETTE_BANDS = [0.15, 0.235, 0.31, 0.44, 0.6]
+
 /**
- * Shows a placeholder for a missing or failed photo. Poster mode shows the API's hero copy (the whole photo with its top
- * edge continued above it); if that fails, or with Reduce Transparency, the plain uncropped photo sits at the bottom.
+ * A blurred copy of `uri` filling `rect`. It decodes at a quarter of the size and scales up, which keeps the blur cheap
+ * and soft; `cover` crops to the rect (zoomed by `zoom`), otherwise `rect` must already have the photo's aspect.
  */
-export function Photo({ uri, width, height, label, contain, poster }: {
-  uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: boolean
+function SoftImage({ uri, rect, cover, zoom = 1 }: { uri: string; rect: { left: number; top: number; width: number; height: number }; cover?: boolean; zoom?: number }) {
+  const w = rect.width / 4, h = rect.height / 4
+  return <Image source={{ uri }} blurRadius={5} resizeMode={cover ? 'cover' : 'stretch'} accessible={false}
+    style={{ position: 'absolute', left: rect.left + (rect.width - w) / 2, top: rect.top + (rect.height - h) / 2, width: w, height: h, transform: [{ scale: 4 * zoom }] }} />
+}
+
+/**
+ * Shows a placeholder for a missing or failed photo. Poster mode (the listing hero) shows the whole photo centered and
+ * uncropped; frame it leaves visible gets a blurred, zoomed copy. `vignette` softens the top that many points under the
+ * status bar and buttons: aligned blurred copies of the photo fading out downward, plus a light shade. Reduce
+ * Transparency keeps only the shade.
+ */
+export function Photo({ uri, width, height, label, contain, poster, vignette, onAspect }: {
+  uri?: string; width: number; height: number; label?: string; contain?: boolean; poster?: boolean; vignette?: number; onAspect?(): void
 }) {
   const colors = useColors()
+  const scheme = useScheme()
   const reduceTransparency = useReduceTransparency()
-  // Keyed to the URI so a failure or size never sticks to a recycled view that now shows another photo.
+  // Keyed to the URI so a failure never sticks to a recycled view that now shows another photo.
   const [failed, setFailed] = useState<string>()
-  const [heroFailed, setHeroFailed] = useState<string>()
-  const [size, setSize] = useState<{ uri: string; aspect: number }>()
   const show = !!uri && failed !== uri
-  if (poster && show && !reduceTransparency && heroFailed !== uri) {
-    // The hero has the frame's 1:1.05 aspect, so cover crops nothing.
-    return (
-      <Image accessibilityLabel={label} source={{ uri: uri.replace('/uploads/', '/uploads/hero/') }} resizeMode="cover"
-        onError={() => setHeroFailed(uri)} style={{ width, height, backgroundColor: colors.fill }} />
-    )
+  const onLoad = (e: { nativeEvent: { source?: { width: number; height: number } } }) => {
+    const s = e.nativeEvent.source
+    if (!uri || !(s && s.width > 0 && s.height > 0) || photoAspects.get(uri) === s.width / s.height) return
+    photoAspects.set(uri, s.width / s.height)
+    onAspect?.()
   }
   if (poster && show) {
-    const aspect = size?.uri === uri ? size.aspect : 0
-    // Contain the sharp photo even if the native loader provides no dimensions for bottom alignment.
-    const w = aspect ? Math.min(width, height * aspect) : width
-    const h = aspect ? Math.min(height, width / aspect) : height
+    const aspect = photoAspects.get(uri)
+    // Until the size is known, contain keeps it uncropped; blurred layers wait so they come from the cache, not a second download.
+    const fit = aspect ? fitRect(width, height, aspect) : undefined
+    const rect = fit ?? { left: 0, top: 0, width, height }
+    const shade = scheme === 'dark' ? '0,0,0' : '255,255,255'
     return (
       <View style={{ width, height, backgroundColor: colors.fill, overflow: 'hidden' }}>
-        <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" onError={() => setFailed(uri)}
-          onLoad={(e) => {
-            const source = e.nativeEvent.source
-            if (source?.width > 0 && source.height > 0) setSize({ uri, aspect: source.width / source.height })
-          }}
-          style={{ position: 'absolute', bottom: 0, left: (width - w) / 2, width: w, height: h }} />
+        {fit?.fill && !reduceTransparency && <SoftImage uri={uri} rect={{ left: 0, top: 0, width, height }} cover zoom={1.2} />}
+        <Image accessibilityLabel={label} source={{ uri }} resizeMode="contain" onError={() => setFailed(uri)} onLoad={onLoad}
+          style={{ position: 'absolute', left: rect.left, top: rect.top, width: rect.width, height: rect.height }} />
+        {!!vignette && fit && !reduceTransparency && rect.top < vignette && VIGNETTE_BANDS.map((opacity, i) => (
+          <View key={i} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, width, height: (vignette * (VIGNETTE_BANDS.length - i)) / VIGNETTE_BANDS.length, overflow: 'hidden', opacity }}>
+            <SoftImage uri={uri} rect={rect} />
+          </View>
+        ))}
+        {!!vignette && (
+          <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, width, height: vignette * 1.15,
+            experimental_backgroundImage: `linear-gradient(to bottom, rgba(${shade},0.5), rgba(${shade},0.2) 45%, rgba(${shade},0))` }} />
+        )}
       </View>
     )
   }
   return (
     <View style={{ width, height, backgroundColor: contain ? 'transparent' : colors.fill, alignItems: 'center', justifyContent: 'center' }}>
       {show
-        ? <Image accessibilityLabel={label} source={{ uri }} style={{ width, height }} resizeMode={contain ? 'contain' : 'cover'} onError={() => setFailed(uri)} />
+        ? <Image accessibilityLabel={label} source={{ uri }} style={{ width, height }} resizeMode={contain ? 'contain' : 'cover'} onError={() => setFailed(uri)} onLoad={onLoad} />
         : <Icon name="car" size={Math.min(48, height / 4)} color={colors.tertiary} />}
     </View>
   )

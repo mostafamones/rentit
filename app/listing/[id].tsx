@@ -1,21 +1,23 @@
 import { Link, router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { Alert, LayoutAnimation, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { api, imageUrl, listingPreviews, type ListingDetail } from '../../src/api'
 import { TRANSMISSION_LABEL, VEHICLE_TYPE_LABEL, formatDate, formatEgp } from '../../src/domain/rental'
 import { useSession } from '../../src/session'
 import { type, useColors } from '../../src/theme'
-import { pageAt } from '../../src/media'
-import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, Photo as PhotoImage, SyncStatus, ZoomFrame, styles } from '../../src/ui'
+import { heroHeight, pageAt } from '../../src/media'
+import { Banner, Button, Card, GlassButton, GlassCapsule, Icon, OwnerLine, Photo as PhotoImage, SyncStatus, ZoomFrame, photoAspects, styles } from '../../src/ui'
 import { usePoll } from '../../src/usePoll'
+import { useReduceMotion } from '../../src/a11y'
 
 type Photo = ListingDetail['photos'][number]
 
 export default function ListingScreen() {
   const { id, photo } = useLocalSearchParams<{ id: string; photo?: string }>()
   const colors = useColors()
-  const { width } = useWindowDimensions()
+  const { width, height: screenHeight } = useWindowDimensions()
+  const reduceMotion = useReduceMotion()
   const insets = useSafeAreaInsets()
   const { user } = useSession()
   // Opens on the photo the card was showing.
@@ -23,22 +25,30 @@ export default function ListingScreen() {
   const [viewer, setViewer] = useState(false)
   const { data: l, error, updatedAt } = usePoll(() => api<{ listing: ListingDetail }>(`/listings/${id}`).then((r) => r.listing), `${id}:${user?.id}`)
   const back = () => (router.canGoBack() ? router.back() : router.replace('/browse'))
-  const heroHeight = Math.round(width * 1.05)
+  // Re-renders when a photo's size first becomes known; the sizes themselves live in photoAspects.
+  const [, setSized] = useState(0)
 
   // Until the detail arrives, the hero shows the card's copy so the zoom lands on the same photo from the first frame.
   const preview = l ?? listingPreviews.get(Number(id))
   const photos = preview?.photos ?? []
   const title = preview ? `${preview.make} ${preview.model} ${preview.year}` : ''
   const shown = Math.min(page, Math.max(0, photos.length - 1))
+  // Sized by the photo the pager rests on, so it changes once per swipe, never per scroll event.
+  const heroH = heroHeight(width, screenHeight, photoAspects.get(imageUrl(photos[shown]?.url) ?? ''))
+  const onPage = (i: number) => {
+    if (i !== page && !reduceMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    setPage(i)
+  }
 
   // One stable tree from loading to loaded; the zoom lands on an empty frame over the gallery, so photos never sit inside
   // the transition's native wrapper and show even if it registers nothing.
   // The title sits under the photo so it never covers the car.
   const hero = (
     <>
-      <View collapsable={false} style={{ width, height: heroHeight, backgroundColor: colors.fill }}>
-        <Gallery photos={photos} title={title} width={width} height={heroHeight} page={page} onPage={setPage} onOpen={() => setViewer(true)} />
-        <Link.AppleZoomTarget><ZoomFrame width={width} height={heroHeight} /></Link.AppleZoomTarget>
+      <View collapsable={false} style={{ width, height: heroH, backgroundColor: colors.fill }}>
+        <Gallery photos={photos} title={title} width={width} height={heroH} vignette={insets.top + 56} page={page} onPage={onPage}
+          onAspect={() => setSized((n) => n + 1)} onOpen={() => setViewer(true)} />
+        <Link.AppleZoomTarget><ZoomFrame width={width} height={heroH} /></Link.AppleZoomTarget>
       </View>
       {preview && (
         <View style={local.titleBlock}>
@@ -162,8 +172,8 @@ export default function ListingScreen() {
 }
 
 /** Swipeable photos; the title below shows the page count. Tapping a photo opens it full screen. */
-function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
-  photos: Photo[]; title: string; width: number; height: number; page: number; onPage(i: number): void; onOpen(): void
+function Gallery({ photos, title, width, height, vignette, page, onPage, onAspect, onOpen }: {
+  photos: Photo[]; title: string; width: number; height: number; vignette: number; page: number; onPage(i: number): void; onAspect(): void; onOpen(): void
 }) {
   const colors = useColors()
   // The opening page is applied once at mount; passing it on every render can jump or blank the pager mid-swipe.
@@ -176,7 +186,7 @@ function Gallery({ photos, title, width, height, page, onPage, onOpen }: {
       {photos.map((p, i) => (
         <Pressable key={p.id} style={{ width, height }} accessibilityRole="imagebutton" accessibilityLabel={`${title}, photo ${i + 1} of ${photos.length}`}
           accessibilityHint="Opens full screen" onPress={onOpen}>
-          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} poster />
+          <PhotoImage uri={imageUrl(p.url)} width={width} height={height} poster vignette={vignette} onAspect={onAspect} />
         </Pressable>
       ))}
     </ScrollView>

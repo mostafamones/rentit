@@ -7,7 +7,6 @@ import {
   type Range,
 } from '../src/domain/rental.ts'
 import { transaction, type DB } from './db.ts'
-import { heroFile } from './hero.ts'
 
 export type Config = { db: DB; uploadsDir: string; today?: () => string }
 
@@ -437,17 +436,6 @@ export function createHandler(cfg: Config) {
         if (!existsSync(file)) throw new HttpError(404, 'Not found.')
         res.writeHead(200, { 'content-type': upload[2] === 'jpg' ? 'image/jpeg' : `image/${upload[2]}`, 'cache-control': 'public, max-age=86400' })
         return res.end(readFileSync(file))
-      }
-      const hero = /^\/uploads\/hero\/([\w-]+\.(?:jpg|png|webp))$/.exec(url.pathname)
-      if (req.method === 'GET' && hero) {
-        const jpeg = await (heroFile(cfg.uploadsDir, hero[1]) ?? Promise.reject(new HttpError(404, 'Not found.')))
-          .catch((e) => {
-            if (e instanceof HttpError) throw e
-            console.error(e)
-            throw new HttpError(422, 'That photo could not be processed.')
-          })
-        res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=86400' })
-        return res.end(jpeg)
       }
       let matchedPath = false
       for (const [method, pattern, handler] of routes) {
