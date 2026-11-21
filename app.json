@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Rentit",
+    "slug": "rentit",
+    "scheme": "rentit",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.mostafamones.rentit",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.mostafamones.rentit"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      ["expo-image-picker", {
+        "photosPermission": "Rentit uses your selected photos in car listings.",
+        "cameraPermission": false,
+        "microphonePermission": false
+      }],
+      ["expo-secure-store", { "faceIDPermission": false }]
+    ]
+  }
+}
